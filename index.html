@@ -236,10 +236,12 @@
       <div class="auth-panel">
         <h4>📝 Current Configuration</h4>
         <p style="font-size: 11px; color: #333;">
-          Token: <code id="current-token">not set</code>
+          The API token is supplied via <code>{{setting.token}}</code> — a BoldDesk SDK template
+          placeholder resolved automatically at runtime from your app's <strong>Settings</strong>.
         </p>
-        <p style="font-size: 10px; color: #666; margin-top: 5px;">
-          To change, edit <code>setting.token</code> in the script section of this HTML file.
+        <p style="font-size: 10px; color: #888; margin-top: 6px;">
+          To change the token, update the <code>token</code> field in your BoldDesk app settings panel.
+          No code changes are required.
         </p>
       </div>
 
@@ -423,17 +425,38 @@
     const LOG_LIMIT = 100;
     const PIPEDRIVE_BASE_URL = 'https://api.pipedrive.com/v1';
 
-    // Initialize the BoldDesk SDK client
-    app.initialized().then(function (_client) {
-      client = _client;
-      addLog('SYSTEM', '✅ SDK Ready', 'success', 'BoldDesk SDK client initialized');
-      updateLogs();
-    }).catch(function (err) {
-      addLog('SYSTEM', '⚠️ SDK Init Failed', 'warning', 'Running without SDK client: ' + (err && err.message ? err.message : String(err)));
-      updateLogs();
-    });
+    // Initialize SDK — same pattern as reference app
+    console.log('=== Pipedrive Deal Manager Starting ===');
+    console.log('BAFClient:', typeof BAFClient);
+
+    if (typeof BAFClient === 'undefined') {
+      addLog('SYSTEM', '❌ SDK Load Failed', 'error', 'BAFClient not available. Make sure the SDK script is loaded.');
+      setStatus('error');
+    } else {
+      client = BAFClient.init();
+      console.log('Client initialized:', typeof client);
+
+      if (typeof client === 'object' && client !== null && typeof client.request === 'function') {
+        addLog('SYSTEM', '✅ SDK Ready', 'success', 'BAFClient initialized — Pipedrive Deal Manager active');
+        setStatus('ready');
+      } else if (client === false) {
+        addLog('SYSTEM', '❌ SDK Init Failed', 'error', 'Missing URL parameters — app must be loaded as iframe with ?origin=...&app_guid=...');
+        setStatus('error');
+      } else {
+        addLog('SYSTEM', '❌ SDK Init Failed', 'error', 'Unexpected client type: ' + typeof client);
+        setStatus('error');
+      }
+    }
+
+    function setStatus(status) {
+      const badge = document.getElementById('status');
+      if (!badge) return;
+      badge.className = 'status-badge ' + status;
+      badge.textContent = status === 'ready' ? '✅ SDK Ready' : '⚠️ SDK Error';
+    }
 
     // Helper: build standard Pipedrive request headers
+    // {{setting.token}} is resolved at runtime by the BoldDesk SDK from app settings — no JS value needed
     function buildHeaders() {
       return {
         'Content-Type': 'application/json',
@@ -444,7 +467,7 @@
     // Helper: execute a client.request() call
     function clientRequest(options, logType, successLabel, failLabel, onSuccess) {
       if (!client) {
-        addLog(logType, '❌ Client Not Ready', 'error', 'BoldDesk SDK client is not initialized');
+        addLog(logType, '❌ Client Not Ready', 'error', 'Client not initialized');
         updateLogs();
         return;
       }
@@ -466,7 +489,7 @@
 
     function testConnection() {
       if (!client) {
-        addLog('AUTH', '❌ Test Failed', 'error', 'BoldDesk SDK client is not initialized');
+        addLog('AUTH', '❌ Test Failed', 'error', 'Client not initialized');
         updateLogs();
         return;
       }
@@ -736,9 +759,7 @@
       updateLogs();
     }
 
-    // Initial
-    console.log('=== Pipedrive Deal Manager Started ===');
-    addLog('SYSTEM', '🔄 Initializing...', 'info', 'Waiting for BoldDesk SDK...');
+    // Initial render
     updateLogs();
   </script>
 </body>
