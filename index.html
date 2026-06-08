@@ -457,120 +457,219 @@
       badge.textContent = status === 'ready' ? '✅ SDK Ready' : '⚠️ SDK Error';
     }
 
-    // Helper: build standard Pipedrive request headers
-    // {{setting.token}} is resolved at runtime by the BoldDesk SDK from app settings — no JS value needed
-    function buildHeaders() {
-      return {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer {{setting.token}}'
-      };
-    }
+    // ── Authentication ─────────────────────────────────────────────────────────
 
-    // Helper: execute a client.request() call
-    function clientRequest(options, logType, successLabel, failLabel, onSuccess) {
+    function testConnection() {
       if (!client) {
-        addLog(logType, '❌ Client Not Ready', 'error', 'Client not initialized');
+        addLog('AUTH', '❌ Client Not Initialized', 'error', 'BoldDesk SDK client is not initialized');
         updateLogs();
         return;
       }
+
+      const options = {
+        url: 'https://api.pipedrive.com/v1/users/me',
+        type: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer {{setting.token}}'
+        }
+      };
+
+      addLog('AUTH', '🔄 Testing Connection...', 'info', options.url);
+
       client.request(options).then(
         function (response) {
           const displayValue = typeof response === 'object' ? JSON.stringify(response, null, 2) : String(response);
-          addLog(logType, successLabel, 'success', displayValue);
-          if (onSuccess) onSuccess(response);
+          addLog('AUTH', '✅ Connection Success', 'success', displayValue);
           updateLogs();
         },
         function (err) {
-          addLog(logType, failLabel, 'error', (err && err.message) ? err.message : 'Unknown error');
+          addLog('AUTH', '❌ Connection Failed', 'error', (err && err.message) ? err.message : 'Unknown error');
           updateLogs();
         }
       );
     }
 
-    // ── Authentication ─────────────────────────────────────────────────────────
-
-    function testConnection() {
-      if (!client) {
-        addLog('AUTH', '❌ Test Failed', 'error', 'Client not initialized');
-        updateLogs();
-        return;
-      }
-      const options = {
-        url: `${PIPEDRIVE_BASE_URL}/users/me`,
-        type: 'GET',
-        headers: buildHeaders()
-      };
-      addLog('AUTH', '🔄 Testing Connection...', 'info', options.url);
-      clientRequest(options, 'AUTH', '✅ Connection Success', '❌ Connection Failed');
-    }
-
     // ── GET Deals ──────────────────────────────────────────────────────────────
 
     function getAllDeals() {
+      if (!client) {
+        addLog('GET', '❌ Client Not Initialized', 'error', 'BoldDesk SDK client is not initialized');
+        updateLogs();
+        return;
+      }
+
       const options = {
-        url: `${PIPEDRIVE_BASE_URL}/deals?limit=100`,
+        url: 'https://api.pipedrive.com/v1/deals?limit=100',
         type: 'GET',
-        headers: buildHeaders()
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer {{setting.token}}'
+        }
       };
+
       addLog('GET', '🔄 Fetching All Deals...', 'info', options.url);
-      clientRequest(options, 'GET', '✅ All Deals Retrieved', '❌ Fetch Failed');
+
+      client.request(options).then(
+        function (response) {
+          const displayValue = typeof response === 'object' ? JSON.stringify(response, null, 2) : String(response);
+          addLog('GET', '✅ All Deals Retrieved', 'success', displayValue);
+          updateLogs();
+        },
+        function (err) {
+          addLog('GET', '❌ Fetch Failed', 'error', (err && err.message) ? err.message : 'Unknown error');
+          updateLogs();
+        }
+      );
     }
 
     function getDealById() {
+      if (!client) {
+        addLog('GET', '❌ Client Not Initialized', 'error', 'BoldDesk SDK client is not initialized');
+        updateLogs();
+        return;
+      }
+
       const dealId = document.getElementById('get-deal-id').value.trim();
       if (!dealId) {
         addLog('GET', '⚠️ No Deal ID', 'error', 'Please enter a deal ID');
         updateLogs();
         return;
       }
+
       const options = {
-        url: `${PIPEDRIVE_BASE_URL}/deals/${dealId}`,
+        url: 'https://api.pipedrive.com/v1/deals/' + dealId,
         type: 'GET',
-        headers: buildHeaders()
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer {{setting.token}}'
+        }
       };
-      addLog('GET', `🔄 Fetching Deal ${dealId}...`, 'info', options.url);
-      clientRequest(options, 'GET', `✅ Deal ${dealId} Retrieved`, '❌ Fetch Failed');
+
+      addLog('GET', '🔄 Fetching Deal ' + dealId + '...', 'info', options.url);
+
+      client.request(options).then(
+        function (response) {
+          const displayValue = typeof response === 'object' ? JSON.stringify(response, null, 2) : String(response);
+          addLog('GET', '✅ Deal ' + dealId + ' Retrieved', 'success', displayValue);
+          updateLogs();
+        },
+        function (err) {
+          addLog('GET', '❌ Fetch Failed', 'error', (err && err.message) ? err.message : 'Unknown error');
+          updateLogs();
+        }
+      );
     }
 
     function getDealsByUser() {
+      if (!client) {
+        addLog('GET', '❌ Client Not Initialized', 'error', 'BoldDesk SDK client is not initialized');
+        updateLogs();
+        return;
+      }
+
       const userId = document.getElementById('get-user-id').value.trim();
       if (!userId) {
         addLog('GET', '⚠️ No User ID', 'error', 'Please enter a user ID');
         updateLogs();
         return;
       }
+
       const options = {
-        url: `${PIPEDRIVE_BASE_URL}/users/${userId}/deals`,
+        url: 'https://api.pipedrive.com/v1/users/' + userId + '/deals',
         type: 'GET',
-        headers: buildHeaders()
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer {{setting.token}}'
+        }
       };
-      addLog('GET', `🔄 Fetching Deals for User ${userId}...`, 'info', options.url);
-      clientRequest(options, 'GET', `✅ Deals for User ${userId} Retrieved`, '❌ Fetch Failed');
+
+      addLog('GET', '🔄 Fetching Deals for User ' + userId + '...', 'info', options.url);
+
+      client.request(options).then(
+        function (response) {
+          const displayValue = typeof response === 'object' ? JSON.stringify(response, null, 2) : String(response);
+          addLog('GET', '✅ Deals for User ' + userId + ' Retrieved', 'success', displayValue);
+          updateLogs();
+        },
+        function (err) {
+          addLog('GET', '❌ Fetch Failed', 'error', (err && err.message) ? err.message : 'Unknown error');
+          updateLogs();
+        }
+      );
     }
 
     function getDealsByStage() {
+      if (!client) {
+        addLog('GET', '❌ Client Not Initialized', 'error', 'BoldDesk SDK client is not initialized');
+        updateLogs();
+        return;
+      }
+
       const options = {
-        url: `${PIPEDRIVE_BASE_URL}/stages`,
+        url: 'https://api.pipedrive.com/v1/stages',
         type: 'GET',
-        headers: buildHeaders()
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer {{setting.token}}'
+        }
       };
+
       addLog('GET', '🔄 Fetching Stages...', 'info', options.url);
-      clientRequest(options, 'GET', '✅ Stages Retrieved', '❌ Fetch Failed');
+
+      client.request(options).then(
+        function (response) {
+          const displayValue = typeof response === 'object' ? JSON.stringify(response, null, 2) : String(response);
+          addLog('GET', '✅ Stages Retrieved', 'success', displayValue);
+          updateLogs();
+        },
+        function (err) {
+          addLog('GET', '❌ Fetch Failed', 'error', (err && err.message) ? err.message : 'Unknown error');
+          updateLogs();
+        }
+      );
     }
 
     function getDealsByStatus() {
+      if (!client) {
+        addLog('GET', '❌ Client Not Initialized', 'error', 'BoldDesk SDK client is not initialized');
+        updateLogs();
+        return;
+      }
+
       const options = {
-        url: `${PIPEDRIVE_BASE_URL}/deals?status=open&limit=50`,
+        url: 'https://api.pipedrive.com/v1/deals?status=open&limit=50',
         type: 'GET',
-        headers: buildHeaders()
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer {{setting.token}}'
+        }
       };
+
       addLog('GET', '🔄 Fetching Open Deals...', 'info', options.url);
-      clientRequest(options, 'GET', '✅ Open Deals Retrieved', '❌ Fetch Failed');
+
+      client.request(options).then(
+        function (response) {
+          const displayValue = typeof response === 'object' ? JSON.stringify(response, null, 2) : String(response);
+          addLog('GET', '✅ Open Deals Retrieved', 'success', displayValue);
+          updateLogs();
+        },
+        function (err) {
+          addLog('GET', '❌ Fetch Failed', 'error', (err && err.message) ? err.message : 'Unknown error');
+          updateLogs();
+        }
+      );
     }
 
     // ── CREATE Deal ────────────────────────────────────────────────────────────
 
     function createDeal() {
+      if (!client) {
+        addLog('CREATE', '❌ Client Not Initialized', 'error', 'BoldDesk SDK client is not initialized');
+        updateLogs();
+        return;
+      }
+
       const title = document.getElementById('create-title').value.trim();
       const value = document.getElementById('create-value').value.trim();
       const currency = document.getElementById('create-currency').value.trim();
@@ -599,19 +698,39 @@
       if (notes) dealData.notes = notes;
 
       const options = {
-        url: `${PIPEDRIVE_BASE_URL}/deals`,
+        url: 'https://api.pipedrive.com/v1/deals',
         type: 'POST',
-        headers: buildHeaders(),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer {{setting.token}}'
+        },
         body: JSON.stringify(dealData)
       };
 
       addLog('CREATE', '🔄 Creating Deal...', 'info', JSON.stringify(dealData, null, 2));
-      clientRequest(options, 'CREATE', '✅ Deal Created', '❌ Creation Failed');
+
+      client.request(options).then(
+        function (response) {
+          const displayValue = typeof response === 'object' ? JSON.stringify(response, null, 2) : String(response);
+          addLog('CREATE', '✅ Deal Created', 'success', displayValue);
+          updateLogs();
+        },
+        function (err) {
+          addLog('CREATE', '❌ Creation Failed', 'error', (err && err.message) ? err.message : 'Unknown error');
+          updateLogs();
+        }
+      );
     }
 
     // ── UPDATE Deal ────────────────────────────────────────────────────────────
 
     function updateDeal() {
+      if (!client) {
+        addLog('UPDATE', '❌ Client Not Initialized', 'error', 'BoldDesk SDK client is not initialized');
+        updateLogs();
+        return;
+      }
+
       const dealId = document.getElementById('update-deal-id').value.trim();
       if (!dealId) {
         addLog('UPDATE', '⚠️ No Deal ID', 'error', 'Deal ID is required');
@@ -639,19 +758,39 @@
       }
 
       const options = {
-        url: `${PIPEDRIVE_BASE_URL}/deals/${dealId}`,
+        url: 'https://api.pipedrive.com/v1/deals/' + dealId,
         type: 'PUT',
-        headers: buildHeaders(),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer {{setting.token}}'
+        },
         body: JSON.stringify(updateData)
       };
 
-      addLog('UPDATE', `🔄 Updating Deal ${dealId}...`, 'info', JSON.stringify(updateData, null, 2));
-      clientRequest(options, 'UPDATE', `✅ Deal ${dealId} Updated`, '❌ Update Failed');
+      addLog('UPDATE', '🔄 Updating Deal ' + dealId + '...', 'info', JSON.stringify(updateData, null, 2));
+
+      client.request(options).then(
+        function (response) {
+          const displayValue = typeof response === 'object' ? JSON.stringify(response, null, 2) : String(response);
+          addLog('UPDATE', '✅ Deal ' + dealId + ' Updated', 'success', displayValue);
+          updateLogs();
+        },
+        function (err) {
+          addLog('UPDATE', '❌ Update Failed', 'error', (err && err.message) ? err.message : 'Unknown error');
+          updateLogs();
+        }
+      );
     }
 
     // ── DELETE Deal ────────────────────────────────────────────────────────────
 
     function deleteDeal() {
+      if (!client) {
+        addLog('DELETE', '❌ Client Not Initialized', 'error', 'BoldDesk SDK client is not initialized');
+        updateLogs();
+        return;
+      }
+
       const dealId = document.getElementById('delete-deal-id').value.trim();
       if (!dealId) {
         addLog('DELETE', '⚠️ No Deal ID', 'error', 'Deal ID is required');
@@ -659,48 +798,82 @@
         return;
       }
 
-      if (!confirm(`Are you sure you want to delete deal ${dealId}? This cannot be undone.`)) {
+      if (!confirm('Are you sure you want to delete deal ' + dealId + '? This cannot be undone.')) {
         addLog('DELETE', 'ℹ️ Cancelled', 'info', 'Delete operation cancelled');
         updateLogs();
         return;
       }
 
       const options = {
-        url: `${PIPEDRIVE_BASE_URL}/deals/${dealId}`,
+        url: 'https://api.pipedrive.com/v1/deals/' + dealId,
         type: 'DELETE',
-        headers: buildHeaders()
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer {{setting.token}}'
+        }
       };
 
-      addLog('DELETE', `🔄 Deleting Deal ${dealId}...`, 'info', options.url);
-      clientRequest(options, 'DELETE', `✅ Deal ${dealId} Deleted`, '❌ Delete Failed');
+      addLog('DELETE', '🔄 Deleting Deal ' + dealId + '...', 'info', options.url);
+
+      client.request(options).then(
+        function (response) {
+          const displayValue = typeof response === 'object' ? JSON.stringify(response, null, 2) : String(response);
+          addLog('DELETE', '✅ Deal ' + dealId + ' Deleted', 'success', displayValue);
+          updateLogs();
+        },
+        function (err) {
+          addLog('DELETE', '❌ Delete Failed', 'error', (err && err.message) ? err.message : 'Unknown error');
+          updateLogs();
+        }
+      );
     }
 
     // ── Search Deals ───────────────────────────────────────────────────────────
 
     function searchDeals() {
-      let url = `${PIPEDRIVE_BASE_URL}/deals?`;
+      if (!client) {
+        addLog('SEARCH', '❌ Client Not Initialized', 'error', 'BoldDesk SDK client is not initialized');
+        updateLogs();
+        return;
+      }
+
+      let url = 'https://api.pipedrive.com/v1/deals?';
       const searchTerm = document.getElementById('search-term').value.trim();
-      if (searchTerm) url += `title=${encodeURIComponent(searchTerm)}&`;
+      if (searchTerm) url += 'title=' + encodeURIComponent(searchTerm) + '&';
 
       const minValue = document.getElementById('search-min').value.trim();
-      if (minValue) url += `value_gte=${minValue}&`;
+      if (minValue) url += 'value_gte=' + minValue + '&';
 
       const maxValue = document.getElementById('search-max').value.trim();
-      if (maxValue) url += `value_lte=${maxValue}&`;
+      if (maxValue) url += 'value_lte=' + maxValue + '&';
 
       const status = document.getElementById('search-status').value.trim();
-      if (status) url += `status=${status}&`;
+      if (status) url += 'status=' + status + '&';
 
       url = url.replace(/[?&]$/, '');
 
       const options = {
         url: url,
         type: 'GET',
-        headers: buildHeaders()
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer {{setting.token}}'
+        }
       };
 
       addLog('SEARCH', '🔄 Searching Deals...', 'info', options.url);
-      clientRequest(options, 'SEARCH', '✅ Search Results Retrieved', '❌ Search Failed');
+
+      client.request(options).then(
+        function (response) {
+          const displayValue = typeof response === 'object' ? JSON.stringify(response, null, 2) : String(response);
+          addLog('SEARCH', '✅ Search Results Retrieved', 'success', displayValue);
+          updateLogs();
+        },
+        function (err) {
+          addLog('SEARCH', '❌ Search Failed', 'error', (err && err.message) ? err.message : 'Unknown error');
+          updateLogs();
+        }
+      );
     }
 
     // ── UI Helpers ─────────────────────────────────────────────────────────────
