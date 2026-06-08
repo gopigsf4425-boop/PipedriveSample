@@ -4,7 +4,6 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Pipedrive Deal Manager</title>
-  <script src="https://unpkg.com/bolddesk-final-framework-sdk@1.0.37/build/baf_sdk.min.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { 
@@ -418,6 +417,7 @@
     </div>
   </div>
 
+  <script src="https://unpkg.com/bolddesk-final-framework-sdk@1.0.37/build/baf_sdk.min.js"></script>
   <script>
     let client = null;
     let allLogs = [];
@@ -436,13 +436,15 @@
       client = BAFClient.init();
       console.log('Client initialized:', typeof client);
 
-      if (typeof client === 'object' && client !== null && typeof client.request === 'function') {
+      if (typeof client === 'object' && client !== null && typeof client.get === 'function') {
         addLog('SYSTEM', '✅ SDK Ready', 'success', 'BAFClient initialized — Pipedrive Deal Manager active');
         setStatus('ready');
       } else if (client === false) {
-        addLog('SYSTEM', '❌ SDK Init Failed', 'error', 'Missing URL parameters — app must be loaded as iframe with ?origin=...&app_guid=...');
+        client = null; // keep null so !client guards work correctly
+        addLog('SYSTEM', '❌ SDK Init Failed', 'error', 'Missing URL parameters — app must be loaded as iframe inside BoldDesk with ?origin=...&app_guid=...');
         setStatus('error');
       } else {
+        client = null;
         addLog('SYSTEM', '❌ SDK Init Failed', 'error', 'Unexpected client type: ' + typeof client);
         setStatus('error');
       }
