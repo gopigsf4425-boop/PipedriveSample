@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Pipedrive Deal Manager</title>
+  <script src="https://unpkg.com/bolddesk-final-framework-sdk@1.0.37/build/baf_sdk.min.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { 
@@ -416,202 +417,135 @@
   </div>
 
   <script>
+    let client = null;
     let allLogs = [];
     let currentTab = 'auth';
     const LOG_LIMIT = 100;
     const PIPEDRIVE_BASE_URL = 'https://api.pipedrive.com/v1';
 
-    const setting = {
-      token: 'YOUR_API_TOKEN_HERE'
-    };
+    // Initialize the BoldDesk SDK client
+    app.initialized().then(function (_client) {
+      client = _client;
+      addLog('SYSTEM', '✅ SDK Ready', 'success', 'BoldDesk SDK client initialized');
+      updateLogs();
+    }).catch(function (err) {
+      addLog('SYSTEM', '⚠️ SDK Init Failed', 'warning', 'Running without SDK client: ' + (err && err.message ? err.message : String(err)));
+      updateLogs();
+    });
 
-    function testConnection() {
-      if (!setting.token || setting.token === 'YOUR_API_TOKEN_HERE') {
-        addLog('AUTH', '❌ Test Failed', 'error', 'Please set your API token in setting.token');
-        updateLogs();
-        return;
-      }
-
-      const url = `${PIPEDRIVE_BASE_URL}/users?api_token=${setting.token}`;
-      addLog('AUTH', '🔄 Testing Connection...', 'info', 'Connecting to Pipedrive API');
-
-      fetch(url)
-        .then(response => response.json())
-        .then(data => {
-          if (data.success) {
-            addLog('AUTH', '✅ Connection Success', 'success', `Connected! Found ${data.data.length} users`);
-            updateLogs();
-          } else {
-            addLog('AUTH', '❌ Connection Failed', 'error', data.error || 'Unknown error');
-            updateLogs();
-          }
-        })
-        .catch(err => {
-          addLog('AUTH', '❌ Connection Error', 'error', err.message);
-          updateLogs();
-        });
+    // Helper: build standard Pipedrive request headers
+    function buildHeaders() {
+      return {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer {{setting.token}}'
+      };
     }
 
-    function getAllDeals() {
-      if (!setting.token || setting.token === 'YOUR_API_TOKEN_HERE') {
-        addLog('GET', '❌ No Token', 'error', 'Please set API token first');
+    // Helper: execute a client.request() call
+    function clientRequest(options, logType, successLabel, failLabel, onSuccess) {
+      if (!client) {
+        addLog(logType, '❌ Client Not Ready', 'error', 'BoldDesk SDK client is not initialized');
         updateLogs();
         return;
       }
-
-      const url = `${PIPEDRIVE_BASE_URL}/deals?api_token=${setting.token}&limit=100`;
-      addLog('GET', '🔄 Fetching All Deals...', 'info', url);
-
-      fetch(url)
-        .then(response => response.json())
-        .then(data => {
-          if (data.success) {
-            const deals = data.data || [];
-            const displayValue = JSON.stringify(deals, null, 2);
-            addLog('GET', `✅ Found ${deals.length} Deals`, 'success', displayValue);
-          } else {
-            addLog('GET', '❌ Fetch Failed', 'error', data.error || 'Unknown error');
-          }
+      client.request(options).then(
+        function (response) {
+          const displayValue = typeof response === 'object' ? JSON.stringify(response, null, 2) : String(response);
+          addLog(logType, successLabel, 'success', displayValue);
+          if (onSuccess) onSuccess(response);
           updateLogs();
-        })
-        .catch(err => {
-          addLog('GET', '❌ Fetch Error', 'error', err.message);
+        },
+        function (err) {
+          addLog(logType, failLabel, 'error', (err && err.message) ? err.message : 'Unknown error');
           updateLogs();
-        });
+        }
+      );
+    }
+
+    // ── Authentication ─────────────────────────────────────────────────────────
+
+    function testConnection() {
+      if (!client) {
+        addLog('AUTH', '❌ Test Failed', 'error', 'BoldDesk SDK client is not initialized');
+        updateLogs();
+        return;
+      }
+      const options = {
+        url: `${PIPEDRIVE_BASE_URL}/users/me`,
+        type: 'GET',
+        headers: buildHeaders()
+      };
+      addLog('AUTH', '🔄 Testing Connection...', 'info', options.url);
+      clientRequest(options, 'AUTH', '✅ Connection Success', '❌ Connection Failed');
+    }
+
+    // ── GET Deals ──────────────────────────────────────────────────────────────
+
+    function getAllDeals() {
+      const options = {
+        url: `${PIPEDRIVE_BASE_URL}/deals?limit=100`,
+        type: 'GET',
+        headers: buildHeaders()
+      };
+      addLog('GET', '🔄 Fetching All Deals...', 'info', options.url);
+      clientRequest(options, 'GET', '✅ All Deals Retrieved', '❌ Fetch Failed');
     }
 
     function getDealById() {
-      if (!setting.token || setting.token === 'YOUR_API_TOKEN_HERE') {
-        addLog('GET', '❌ No Token', 'error', 'Please set API token first');
-        updateLogs();
-        return;
-      }
-
       const dealId = document.getElementById('get-deal-id').value.trim();
       if (!dealId) {
         addLog('GET', '⚠️ No Deal ID', 'error', 'Please enter a deal ID');
         updateLogs();
         return;
       }
-
-      const url = `${PIPEDRIVE_BASE_URL}/deals/${dealId}?api_token=${setting.token}`;
-      addLog('GET', `🔄 Fetching Deal ${dealId}...`, 'info', url);
-
-      fetch(url)
-        .then(response => response.json())
-        .then(data => {
-          if (data.success) {
-            const displayValue = JSON.stringify(data.data, null, 2);
-            addLog('GET', `✅ Deal ${dealId} Retrieved`, 'success', displayValue);
-          } else {
-            addLog('GET', '❌ Fetch Failed', 'error', data.error || 'Deal not found');
-          }
-          updateLogs();
-        })
-        .catch(err => {
-          addLog('GET', '❌ Fetch Error', 'error', err.message);
-          updateLogs();
-        });
+      const options = {
+        url: `${PIPEDRIVE_BASE_URL}/deals/${dealId}`,
+        type: 'GET',
+        headers: buildHeaders()
+      };
+      addLog('GET', `🔄 Fetching Deal ${dealId}...`, 'info', options.url);
+      clientRequest(options, 'GET', `✅ Deal ${dealId} Retrieved`, '❌ Fetch Failed');
     }
 
     function getDealsByUser() {
-      if (!setting.token || setting.token === 'YOUR_API_TOKEN_HERE') {
-        addLog('GET', '❌ No Token', 'error', 'Please set API token first');
-        updateLogs();
-        return;
-      }
-
       const userId = document.getElementById('get-user-id').value.trim();
       if (!userId) {
         addLog('GET', '⚠️ No User ID', 'error', 'Please enter a user ID');
         updateLogs();
         return;
       }
-
-      const url = `${PIPEDRIVE_BASE_URL}/users/${userId}/deals?api_token=${setting.token}`;
-      addLog('GET', `🔄 Fetching Deals for User ${userId}...`, 'info', url);
-
-      fetch(url)
-        .then(response => response.json())
-        .then(data => {
-          if (data.success) {
-            const deals = data.data || [];
-            const displayValue = JSON.stringify(deals, null, 2);
-            addLog('GET', `✅ Found ${deals.length} Deals for User ${userId}`, 'success', displayValue);
-          } else {
-            addLog('GET', '❌ Fetch Failed', 'error', data.error || 'Unknown error');
-          }
-          updateLogs();
-        })
-        .catch(err => {
-          addLog('GET', '❌ Fetch Error', 'error', err.message);
-          updateLogs();
-        });
+      const options = {
+        url: `${PIPEDRIVE_BASE_URL}/users/${userId}/deals`,
+        type: 'GET',
+        headers: buildHeaders()
+      };
+      addLog('GET', `🔄 Fetching Deals for User ${userId}...`, 'info', options.url);
+      clientRequest(options, 'GET', `✅ Deals for User ${userId} Retrieved`, '❌ Fetch Failed');
     }
 
     function getDealsByStage() {
-      if (!setting.token || setting.token === 'YOUR_API_TOKEN_HERE') {
-        addLog('GET', '❌ No Token', 'error', 'Please set API token first');
-        updateLogs();
-        return;
-      }
-
-      const url = `${PIPEDRIVE_BASE_URL}/stages?api_token=${setting.token}`;
-      addLog('GET', '🔄 Fetching Stages...', 'info', url);
-
-      fetch(url)
-        .then(response => response.json())
-        .then(data => {
-          if (data.success) {
-            const stages = data.data || [];
-            const displayValue = JSON.stringify(stages, null, 2);
-            addLog('GET', `✅ Found ${stages.length} Stages`, 'success', displayValue);
-          } else {
-            addLog('GET', '❌ Fetch Failed', 'error', data.error || 'Unknown error');
-          }
-          updateLogs();
-        })
-        .catch(err => {
-          addLog('GET', '❌ Fetch Error', 'error', err.message);
-          updateLogs();
-        });
+      const options = {
+        url: `${PIPEDRIVE_BASE_URL}/stages`,
+        type: 'GET',
+        headers: buildHeaders()
+      };
+      addLog('GET', '🔄 Fetching Stages...', 'info', options.url);
+      clientRequest(options, 'GET', '✅ Stages Retrieved', '❌ Fetch Failed');
     }
 
     function getDealsByStatus() {
-      if (!setting.token || setting.token === 'YOUR_API_TOKEN_HERE') {
-        addLog('GET', '❌ No Token', 'error', 'Please set API token first');
-        updateLogs();
-        return;
-      }
-
-      const url = `${PIPEDRIVE_BASE_URL}/deals?api_token=${setting.token}&status=open&limit=50`;
-      addLog('GET', '🔄 Fetching Open Deals...', 'info', url);
-
-      fetch(url)
-        .then(response => response.json())
-        .then(data => {
-          if (data.success) {
-            const deals = data.data || [];
-            const displayValue = JSON.stringify(deals, null, 2);
-            addLog('GET', `✅ Found ${deals.length} Open Deals`, 'success', displayValue);
-          } else {
-            addLog('GET', '❌ Fetch Failed', 'error', data.error || 'Unknown error');
-          }
-          updateLogs();
-        })
-        .catch(err => {
-          addLog('GET', '❌ Fetch Error', 'error', err.message);
-          updateLogs();
-        });
+      const options = {
+        url: `${PIPEDRIVE_BASE_URL}/deals?status=open&limit=50`,
+        type: 'GET',
+        headers: buildHeaders()
+      };
+      addLog('GET', '🔄 Fetching Open Deals...', 'info', options.url);
+      clientRequest(options, 'GET', '✅ Open Deals Retrieved', '❌ Fetch Failed');
     }
 
-    function createDeal() {
-      if (!setting.token || setting.token === 'YOUR_API_TOKEN_HERE') {
-        addLog('CREATE', '❌ No Token', 'error', 'Please set API token first');
-        updateLogs();
-        return;
-      }
+    // ── CREATE Deal ────────────────────────────────────────────────────────────
 
+    function createDeal() {
       const title = document.getElementById('create-title').value.trim();
       const value = document.getElementById('create-value').value.trim();
       const currency = document.getElementById('create-currency').value.trim();
@@ -639,37 +573,20 @@
       const notes = document.getElementById('create-notes').value.trim();
       if (notes) dealData.notes = notes;
 
-      const url = `${PIPEDRIVE_BASE_URL}/deals?api_token=${setting.token}`;
-      addLog('CREATE', '🔄 Creating Deal...', 'info', JSON.stringify(dealData, null, 2));
-
-      fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const options = {
+        url: `${PIPEDRIVE_BASE_URL}/deals`,
+        type: 'POST',
+        headers: buildHeaders(),
         body: JSON.stringify(dealData)
-      })
-        .then(response => response.json())
-        .then(data => {
-          if (data.success) {
-            const displayValue = JSON.stringify(data.data, null, 2);
-            addLog('CREATE', `✅ Deal Created (ID: ${data.data.id})`, 'success', displayValue);
-          } else {
-            addLog('CREATE', '❌ Creation Failed', 'error', data.error || 'Unknown error');
-          }
-          updateLogs();
-        })
-        .catch(err => {
-          addLog('CREATE', '❌ Creation Error', 'error', err.message);
-          updateLogs();
-        });
+      };
+
+      addLog('CREATE', '🔄 Creating Deal...', 'info', JSON.stringify(dealData, null, 2));
+      clientRequest(options, 'CREATE', '✅ Deal Created', '❌ Creation Failed');
     }
 
-    function updateDeal() {
-      if (!setting.token || setting.token === 'YOUR_API_TOKEN_HERE') {
-        addLog('UPDATE', '❌ No Token', 'error', 'Please set API token first');
-        updateLogs();
-        return;
-      }
+    // ── UPDATE Deal ────────────────────────────────────────────────────────────
 
+    function updateDeal() {
       const dealId = document.getElementById('update-deal-id').value.trim();
       if (!dealId) {
         addLog('UPDATE', '⚠️ No Deal ID', 'error', 'Deal ID is required');
@@ -696,37 +613,20 @@
         return;
       }
 
-      const url = `${PIPEDRIVE_BASE_URL}/deals/${dealId}?api_token=${setting.token}`;
-      addLog('UPDATE', `🔄 Updating Deal ${dealId}...`, 'info', JSON.stringify(updateData, null, 2));
-
-      fetch(url, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+      const options = {
+        url: `${PIPEDRIVE_BASE_URL}/deals/${dealId}`,
+        type: 'PUT',
+        headers: buildHeaders(),
         body: JSON.stringify(updateData)
-      })
-        .then(response => response.json())
-        .then(data => {
-          if (data.success) {
-            const displayValue = JSON.stringify(data.data, null, 2);
-            addLog('UPDATE', `✅ Deal ${dealId} Updated`, 'success', displayValue);
-          } else {
-            addLog('UPDATE', '❌ Update Failed', 'error', data.error || 'Unknown error');
-          }
-          updateLogs();
-        })
-        .catch(err => {
-          addLog('UPDATE', '❌ Update Error', 'error', err.message);
-          updateLogs();
-        });
+      };
+
+      addLog('UPDATE', `🔄 Updating Deal ${dealId}...`, 'info', JSON.stringify(updateData, null, 2));
+      clientRequest(options, 'UPDATE', `✅ Deal ${dealId} Updated`, '❌ Update Failed');
     }
 
-    function deleteDeal() {
-      if (!setting.token || setting.token === 'YOUR_API_TOKEN_HERE') {
-        addLog('DELETE', '❌ No Token', 'error', 'Please set API token first');
-        updateLogs();
-        return;
-      }
+    // ── DELETE Deal ────────────────────────────────────────────────────────────
 
+    function deleteDeal() {
       const dealId = document.getElementById('delete-deal-id').value.trim();
       if (!dealId) {
         addLog('DELETE', '⚠️ No Deal ID', 'error', 'Deal ID is required');
@@ -740,91 +640,62 @@
         return;
       }
 
-      const url = `${PIPEDRIVE_BASE_URL}/deals/${dealId}?api_token=${setting.token}`;
-      addLog('DELETE', `🔄 Deleting Deal ${dealId}...`, 'info', url);
+      const options = {
+        url: `${PIPEDRIVE_BASE_URL}/deals/${dealId}`,
+        type: 'DELETE',
+        headers: buildHeaders()
+      };
 
-      fetch(url, { method: 'DELETE' })
-        .then(response => response.json())
-        .then(data => {
-          if (data.success) {
-            addLog('DELETE', `✅ Deal ${dealId} Deleted`, 'success', 'Deal successfully deleted');
-          } else {
-            addLog('DELETE', '❌ Delete Failed', 'error', data.error || 'Unknown error');
-          }
-          updateLogs();
-        })
-        .catch(err => {
-          addLog('DELETE', '❌ Delete Error', 'error', err.message);
-          updateLogs();
-        });
+      addLog('DELETE', `🔄 Deleting Deal ${dealId}...`, 'info', options.url);
+      clientRequest(options, 'DELETE', `✅ Deal ${dealId} Deleted`, '❌ Delete Failed');
     }
+
+    // ── Search Deals ───────────────────────────────────────────────────────────
 
     function searchDeals() {
-      if (!setting.token || setting.token === 'YOUR_API_TOKEN_HERE') {
-        addLog('SEARCH', '❌ No Token', 'error', 'Please set API token first');
-        updateLogs();
-        return;
-      }
-
-      let url = `${PIPEDRIVE_BASE_URL}/deals?api_token=${setting.token}`;
+      let url = `${PIPEDRIVE_BASE_URL}/deals?`;
       const searchTerm = document.getElementById('search-term').value.trim();
-      if (searchTerm) {
-        url += `&title=${encodeURIComponent(searchTerm)}`;
-      }
+      if (searchTerm) url += `title=${encodeURIComponent(searchTerm)}&`;
 
       const minValue = document.getElementById('search-min').value.trim();
-      if (minValue) {
-        url += `&value_gte=${minValue}`;
-      }
+      if (minValue) url += `value_gte=${minValue}&`;
 
       const maxValue = document.getElementById('search-max').value.trim();
-      if (maxValue) {
-        url += `&value_lte=${maxValue}`;
-      }
+      if (maxValue) url += `value_lte=${maxValue}&`;
 
       const status = document.getElementById('search-status').value.trim();
-      if (status) {
-        url += `&status=${status}`;
-      }
+      if (status) url += `status=${status}&`;
 
-      addLog('SEARCH', '🔄 Searching Deals...', 'info', url);
+      url = url.replace(/[?&]$/, '');
 
-      fetch(url)
-        .then(response => response.json())
-        .then(data => {
-          if (data.success) {
-            const deals = data.data || [];
-            const displayValue = JSON.stringify(deals, null, 2);
-            addLog('SEARCH', `✅ Found ${deals.length} Matching Deals`, 'success', displayValue);
-          } else {
-            addLog('SEARCH', '❌ Search Failed', 'error', data.error || 'Unknown error');
-          }
-          updateLogs();
-        })
-        .catch(err => {
-          addLog('SEARCH', '❌ Search Error', 'error', err.message);
-          updateLogs();
-        });
+      const options = {
+        url: url,
+        type: 'GET',
+        headers: buildHeaders()
+      };
+
+      addLog('SEARCH', '🔄 Searching Deals...', 'info', options.url);
+      clientRequest(options, 'SEARCH', '✅ Search Results Retrieved', '❌ Search Failed');
     }
+
+    // ── UI Helpers ─────────────────────────────────────────────────────────────
 
     function switchTab(tabName) {
       document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
       document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
-      
       document.getElementById(tabName).classList.add('active');
       event.target.classList.add('active');
-      
       currentTab = tabName;
       updateLogs();
     }
 
     function addLog(type, title, logType, message) {
-      const entry = { 
-        type, 
-        title, 
-        logType, 
-        message, 
-        timestamp: new Date().toLocaleTimeString() 
+      const entry = {
+        type,
+        title,
+        logType,
+        message,
+        timestamp: new Date().toLocaleTimeString()
       };
       allLogs.push(entry);
       if (allLogs.length > LOG_LIMIT) allLogs.shift();
@@ -833,13 +704,12 @@
 
     function updateLogs() {
       const logDiv = document.getElementById(`${currentTab}-log`) || document.getElementById('combined-log');
-      
       if (!logDiv) return;
 
       let logsToDisplay = allLogs;
       if (currentTab !== 'logs') {
         logsToDisplay = allLogs.filter(log => {
-          if (currentTab === 'auth') return log.type === 'AUTH';
+          if (currentTab === 'auth') return log.type === 'AUTH' || log.type === 'SYSTEM';
           if (currentTab === 'get-deals') return log.type === 'GET';
           if (currentTab === 'create-deal') return log.type === 'CREATE';
           if (currentTab === 'update-deal') return log.type === 'UPDATE';
@@ -868,7 +738,7 @@
 
     // Initial
     console.log('=== Pipedrive Deal Manager Started ===');
-    addLog('SYSTEM', '✅ Ready', 'success', 'Pipedrive Deal Manager initialized');
+    addLog('SYSTEM', '🔄 Initializing...', 'info', 'Waiting for BoldDesk SDK...');
     updateLogs();
   </script>
 </body>
