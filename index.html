@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Pipedrive Deal Manager</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+      background: #f5f5f5;
+      padding: 15px;
+      min-height: 100vh;
+    }
+    .container { 
+      max-width: 100%;
+      background: white; 
+      border-radius: 8px; 
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      overflow: hidden;
+      min-height: 90vh;
+    }
+    header {
+      background: linear-gradient(135deg, #1f3a93 0%, #2d5016 100%);
+      color: white;
+      padding: 15px;
+      text-align: center;
+    }
+    header h1 { font-size: 20px; margin-bottom: 3px; }
+    header p { font-size: 11px; opacity: 0.9; }
+    
+    .tabs {
+      display: flex;
+      background: #f0f0f0;
+      border-bottom: 2px solid #ddd;
+      overflow-x: auto;
+    }
+    
+    .tab-button {
+      flex: 1;
+      padding: 10px 12px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+      color: #666;
+      border-bottom: 3px solid transparent;
+      transition: all 0.3s;
+      white-space: nowrap;
+    }
+    
+    .tab-button.active {
+      color: #1f3a93;
+      border-bottom-color: #1f3a93;
+      background: white;
+    }
+    
+    .tab-button:hover {
+      background: white;
+    }
+    
+    .tab-content {
+      display: none;
+      padding: 15px;
+      animation: fadeIn 0.3s;
+      min-height: 900px;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    
+    .test-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 8px;
+      margin-bottom: 15px;
+    }
+    
+    button {
+      padding: 8px 12px;
+      background: #1f3a93;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 500;
+      transition: all 0.3s;
+    }
+    
+    button:hover {
+      background: #2d5016;
+      transform: translateY(-1px);
+    }
+    
+    button:active { transform: translateY(0); }
+    
+    .output {
+      background: #1e1e1e;
+      color: #00ff00;
+      padding: 12px;
+      border-radius: 6px;
+      font-family: 'Monaco', 'Courier New', monospace;
+      font-size: 11px;
+      max-height: 500px;
+      overflow-y: auto;
+      line-height: 1.4;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    
+    .log-entry {
+      margin-bottom: 3px;
+      padding: 3px;
+      border-left: 2px solid transparent;
+    }
+    
+    .log-entry.success { border-left-color: #00ff00; color: #00ff00; }
+    .log-entry.error { border-left-color: #ff6b6b; color: #ff6b6b; }
+    .log-entry.info { border-left-color: #4ecdc4; color: #4ecdc4; }
+    .log-entry.warning { border-left-color: #ffd93d; color: #ffd93d; }
+    
+    .status-badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 20px;
+      font-size: 10px;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+    
+    .status-badge.ready {
+      background: #d4edda;
+      color: #155724;
+    }
+    
+    .status-badge.error {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    
+    h3 {
+      color: #1f3a93;
+      font-size: 13px;
+      margin-bottom: 8px;
+      margin-top: 12px;
+    }
+    
+    h3:first-child { margin-top: 0; }
+    
+    .input-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 12px;
+      padding: 10px;
+      background: #f9f9f9;
+      border-radius: 6px;
+    }
+    
+    .input-group input, .input-group textarea {
+      padding: 6px 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 11px;
+      font-family: 'Monaco', monospace;
+    }
+    
+    .input-group textarea {
+      grid-column: 1 / -1;
+      min-height: 80px;
+      resize: vertical;
+    }
+    
+    p {
+      color: #666;
+      margin-bottom: 10px;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .auth-panel {
+      padding: 15px;
+      background: #f0f0f0;
+      border-radius: 6px;
+      margin-bottom: 15px;
+      border-left: 3px solid #1f3a93;
+    }
+
+    .auth-panel h4 {
+      color: #1f3a93;
+      margin-bottom: 10px;
+      font-size: 13px;
+    }
+
+    .auth-panel input {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 11px;
+      margin-bottom: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🎯 Pipedrive Deal Manager</h1>
+      <span class="status-badge ready" id="status">Ready to Connect</span>
+    </header>
+
+    <div class="tabs">
+      <button class="tab-button active" onclick="switchTab('auth')">🔐 Authentication</button>
+      <button class="tab-button" onclick="switchTab('get-deals')">📋 GET Deals</button>
+      <button class="tab-button" onclick="switchTab('create-deal')">➕ CREATE Deal</button>
+      <button class="tab-button" onclick="switchTab('update-deal')">✏️ UPDATE Deal</button>
+      <button class="tab-button" onclick="switchTab('delete-deal')">🗑️ DELETE Deal</button>
+      <button class="tab-button" onclick="switchTab('search')">🔍 Search Deals</button>
+      <button class="tab-button" onclick="switchTab('logs')">📊 Logs</button>
+    </div>
+
+    <!-- Authentication -->
+    <div id="auth" class="tab-content active">
+      <h3>🔐 Pipedrive API Authentication</h3>
+      <p>Your API token is configured via the <code>setting.token</code> variable. Edit your code to change it.</p>
+      
+      <div class="auth-panel">
+        <h4>📝 Current Configuration</h4>
+        <p style="font-size: 11px; color: #333;">
+          Token: <code id="current-token">not set</code>
+        </p>
+        <p style="font-size: 10px; color: #666; margin-top: 5px;">
+          To change, edit <code>setting.token</code> in the script section of this HTML file.
+        </p>
+      </div>
+
+      <div class="auth-panel">
+        <h4>🧪 Test Connection</h4>
+        <button onclick="testConnection()" style="width: 100%;">✅ Test Connection</button>
+      </div>
+
+      <h3>📊 Auth Output</h3>
+      <div id="auth-log" class="output"></div>
+    </div>
+
+    <!-- GET Deals -->
+    <div id="get-deals" class="tab-content">
+      <h3>📋 Get Deals Information</h3>
+      <p>Click buttons to retrieve deals data from Pipedrive</p>
+      
+      <div class="test-grid">
+        <button onclick="getAllDeals()">📊 Get All Deals</button>
+        <button onclick="getDealById()">🔍 Get Deal by ID</button>
+        <button onclick="getDealsByUser()">👤 Deals by User</button>
+        <button onclick="getDealsByStage()">📈 Deals by Stage</button>
+        <button onclick="getDealsByStatus()">🔖 Deals by Status</button>
+      </div>
+
+      <div class="input-group">
+        <div>
+          <label style="display: block; font-size: 11px; color: #333; margin-bottom: 4px;">Deal ID:</label>
+          <input type="text" id="get-deal-id" placeholder="e.g., 123456" value="">
+        </div>
+        <div>
+          <label style="display: block; font-size: 11px; color: #333; margin-bottom: 4px;">User ID:</label>
+          <input type="text" id="get-user-id" placeholder="e.g., 456789" value="">
+        </div>
+      </div>
+      
+      <h3>📊 GET Output</h3>
+      <div id="get-deals-log" class="output"></div>
+    </div>
+
+    <!-- CREATE Deal -->
+    <div id="create-deal" class="tab-content">
+      <h3>➕ Create New Deal</h3>
+      <p>Fill in the deal details and click CREATE</p>
+      
+      <div class="input-group">
+        <div>
+          <label style="display: block; font-size: 11px; color: #333; margin-bottom: 4px;">Deal Title:</label>
+          <input type="text" id="create-title" placeholder="e.g., Enterprise License" value="New Deal from API">
+        </div>
+        <div>
+          <label style="display: block; font-size: 11px; color: #333; margin-bottom: 4px;">Value:</label>
+          <input type="number" id="create-value" placeholder="e.g., 50000" value="50000">
+        </div>
+        <div>
+          <label style="display: block; font-size: 11px; color: #333; margin-bottom: 4px;">Currency:</label>
+          <input type="text" id="create-currency" placeholder="e.g., USD" value="USD">
+        </div>
+        <div>
+          <label style="display: block; font-size: 11px; color: #333; margin-bottom: 4px;">Stage ID:</label>
+          <input type="text" id="create-stage" placeholder="e.g., 1" value="1">
+        </div>
+        <div>
+          <label style="display: block; font-size: 11px; color: #333; margin-bottom: 4px;">Person ID:</label>
+          <input type="text" id="create-person" placeholder="e.g., 123456" value="">
+        </div>
+        <div>
+          <label style="display: block; font-size: 11px; color: #333; margin-bottom: 4px;">Company ID:</label>
+          <input type="text" id="create-company" placeholder="e.g., 789012" value="">
+        </div>
+        <textarea id="create-notes" placeholder="Deal notes (optional)...">Created via API Test Tool</textarea>
+      </div>
+
+      <div class="test-grid">
+        <button onclick="createDeal()" style="grid-column: 1 / -1;">✅ CREATE DEAL</button>
+      </div>
+
+      <h3>📊 CREATE Output</h3>
+      <div id="create-deal-log" class="output"></div>
+    </div>
+
+    <!-- UPDATE Deal -->
+    <div id="update-deal" class="tab-content">
+      <h3>✏️ Update Existing Deal</h3>
+      <p>Enter deal ID and fields to update</p>
+      
+      <div class="input-group">
+        <div>
+          <label style="display: block; font-size: 11px; color: #333; margin-bottom: 4px;">Deal ID (Required):</label>
+          <input type="text" id="update-deal-id" placeholder="e.g., 123456" value="">
+        </div>
+        <div>
+          <label style="display: block; font-size: 11px; color: #333; margin-bottom: 4px;">Deal Title:</label>
+          <input type="text" id="update-title" placeholder="e.g., Updated Title" value="">
+        </div>
+        <div>
+          <label style="display: block; font-size: 11px; color: #333; margin-bottom: 4px;">Value:</label>
+          <input type="number" id="update-value" placeholder="e.g., 75000" value="">
+        </div>
+        <div>
+          <label style="display: block; font-size: 11px; color: #333; margin-bottom: 4px;">Stage ID:</label>
+          <input type="text" id="update-stage" placeholder="e.g., 3" value="">
+        </div>
+        <textarea id="update-notes" placeholder="Updated notes (optional)..."></textarea>
+      </div>
+
+      <div class="test-grid">
+        <button onclick="updateDeal()" style="grid-column: 1 / -1;">🔄 UPDATE DEAL</button>
+      </div>
+
+      <h3>📊 UPDATE Output</h3>
+      <div id="update-deal-log" class="output"></div>
+    </div>
+
+    <!-- DELETE Deal -->
+    <div id="delete-deal" class="tab-content">
+      <h3>🗑️ Delete Deal</h3>
+      <p>Enter the Deal ID to delete</p>
+      
+      <div class="input-group">
+        <div>
+          <label style="display: block; font-size: 11px; color: #333; margin-bottom: 4px;">Deal ID to Delete:</label>
+          <input type="text" id="delete-deal-id" placeholder="e.g., 123456" value="">
+        </div>
+      </div>
+
+      <div class="test-grid">
+        <button onclick="deleteDeal()" style="grid-column: 1 / -1; background: #dc3545;">⚠️ DELETE DEAL</button>
+      </div>
+
+      <h3>📊 DELETE Output</h3>
+      <div id="delete-deal-log" class="output"></div>
+    </div>
+
+    <!-- Search Deals -->
+    <div id="search" class="tab-content">
+      <h3>🔍 Search Deals</h3>
+      <p>Search for deals using various filters</p>
+      
+      <div class="input-group">
+        <div>
+          <label style="display: block; font-size: 11px; color: #333; margin-bottom: 4px;">Search Term:</label>
+          <input type="text" id="search-term" placeholder="e.g., Enterprise" value="">
+        </div>
+        <div>
+          <label style="display: block; font-size: 11px; color: #333; margin-bottom: 4px;">Min Value:</label>
+          <input type="number" id="search-min" placeholder="e.g., 10000" value="">
+        </div>
+        <div>
+          <label style="display: block; font-size: 11px; color: #333; margin-bottom: 4px;">Max Value:</label>
+          <input type="number" id="search-max" placeholder="e.g., 100000" value="">
+        </div>
+        <div>
+          <label style="display: block; font-size: 11px; color: #333; margin-bottom: 4px;">Status:</label>
+          <input type="text" id="search-status" placeholder="e.g., open, won, lost" value="">
+        </div>
+      </div>
+
+      <div class="test-grid">
+        <button onclick="searchDeals()" style="grid-column: 1 / -1;">🔎 SEARCH</button>
+      </div>
+
+      <h3>📊 Search Output</h3>
+      <div id="search-log" class="output"></div>
+    </div>
+
+    <!-- Logs -->
+    <div id="logs" class="tab-content">
+      <h3>📊 Combined Logs</h3>
+      <div style="margin-bottom: 10px;">
+        <button onclick="clearAllLogs()">🗑️ Clear All Logs</button>
+      </div>
+      <div id="combined-log" class="output" style="min-height: 300px;"></div>
+    </div>
+  </div>
+
+  <script>
+    let allLogs = [];
+    let currentTab = 'auth';
+    const LOG_LIMIT = 100;
+    const PIPEDRIVE_BASE_URL = 'https://api.pipedrive.com/v1';
+
+    const setting = {
+      token: 'YOUR_API_TOKEN_HERE'
+    };
+
+    function testConnection() {
+      if (!setting.token || setting.token === 'YOUR_API_TOKEN_HERE') {
+        addLog('AUTH', '❌ Test Failed', 'error', 'Please set your API token in setting.token');
+        updateLogs();
+        return;
+      }
+
+      const url = `${PIPEDRIVE_BASE_URL}/users?api_token=${setting.token}`;
+      addLog('AUTH', '🔄 Testing Connection...', 'info', 'Connecting to Pipedrive API');
+
+      fetch(url)
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            addLog('AUTH', '✅ Connection Success', 'success', `Connected! Found ${data.data.length} users`);
+            updateLogs();
+          } else {
+            addLog('AUTH', '❌ Connection Failed', 'error', data.error || 'Unknown error');
+            updateLogs();
+          }
+        })
+        .catch(err => {
+          addLog('AUTH', '❌ Connection Error', 'error', err.message);
+          updateLogs();
+        });
+    }
+
+    function getAllDeals() {
+      if (!setting.token || setting.token === 'YOUR_API_TOKEN_HERE') {
+        addLog('GET', '❌ No Token', 'error', 'Please set API token first');
+        updateLogs();
+        return;
+      }
+
+      const url = `${PIPEDRIVE_BASE_URL}/deals?api_token=${setting.token}&limit=100`;
+      addLog('GET', '🔄 Fetching All Deals...', 'info', url);
+
+      fetch(url)
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            const deals = data.data || [];
+            const displayValue = JSON.stringify(deals, null, 2);
+            addLog('GET', `✅ Found ${deals.length} Deals`, 'success', displayValue);
+          } else {
+            addLog('GET', '❌ Fetch Failed', 'error', data.error || 'Unknown error');
+          }
+          updateLogs();
+        })
+        .catch(err => {
+          addLog('GET', '❌ Fetch Error', 'error', err.message);
+          updateLogs();
+        });
+    }
+
+    function getDealById() {
+      if (!setting.token || setting.token === 'YOUR_API_TOKEN_HERE') {
+        addLog('GET', '❌ No Token', 'error', 'Please set API token first');
+        updateLogs();
+        return;
+      }
+
+      const dealId = document.getElementById('get-deal-id').value.trim();
+      if (!dealId) {
+        addLog('GET', '⚠️ No Deal ID', 'error', 'Please enter a deal ID');
+        updateLogs();
+        return;
+      }
+
+      const url = `${PIPEDRIVE_BASE_URL}/deals/${dealId}?api_token=${setting.token}`;
+      addLog('GET', `🔄 Fetching Deal ${dealId}...`, 'info', url);
+
+      fetch(url)
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            const displayValue = JSON.stringify(data.data, null, 2);
+            addLog('GET', `✅ Deal ${dealId} Retrieved`, 'success', displayValue);
+          } else {
+            addLog('GET', '❌ Fetch Failed', 'error', data.error || 'Deal not found');
+          }
+          updateLogs();
+        })
+        .catch(err => {
+          addLog('GET', '❌ Fetch Error', 'error', err.message);
+          updateLogs();
+        });
+    }
+
+    function getDealsByUser() {
+      if (!setting.token || setting.token === 'YOUR_API_TOKEN_HERE') {
+        addLog('GET', '❌ No Token', 'error', 'Please set API token first');
+        updateLogs();
+        return;
+      }
+
+      const userId = document.getElementById('get-user-id').value.trim();
+      if (!userId) {
+        addLog('GET', '⚠️ No User ID', 'error', 'Please enter a user ID');
+        updateLogs();
+        return;
+      }
+
+      const url = `${PIPEDRIVE_BASE_URL}/users/${userId}/deals?api_token=${setting.token}`;
+      addLog('GET', `🔄 Fetching Deals for User ${userId}...`, 'info', url);
+
+      fetch(url)
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            const deals = data.data || [];
+            const displayValue = JSON.stringify(deals, null, 2);
+            addLog('GET', `✅ Found ${deals.length} Deals for User ${userId}`, 'success', displayValue);
+          } else {
+            addLog('GET', '❌ Fetch Failed', 'error', data.error || 'Unknown error');
+          }
+          updateLogs();
+        })
+        .catch(err => {
+          addLog('GET', '❌ Fetch Error', 'error', err.message);
+          updateLogs();
+        });
+    }
+
+    function getDealsByStage() {
+      if (!setting.token || setting.token === 'YOUR_API_TOKEN_HERE') {
+        addLog('GET', '❌ No Token', 'error', 'Please set API token first');
+        updateLogs();
+        return;
+      }
+
+      const url = `${PIPEDRIVE_BASE_URL}/stages?api_token=${setting.token}`;
+      addLog('GET', '🔄 Fetching Stages...', 'info', url);
+
+      fetch(url)
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            const stages = data.data || [];
+            const displayValue = JSON.stringify(stages, null, 2);
+            addLog('GET', `✅ Found ${stages.length} Stages`, 'success', displayValue);
+          } else {
+            addLog('GET', '❌ Fetch Failed', 'error', data.error || 'Unknown error');
+          }
+          updateLogs();
+        })
+        .catch(err => {
+          addLog('GET', '❌ Fetch Error', 'error', err.message);
+          updateLogs();
+        });
+    }
+
+    function getDealsByStatus() {
+      if (!setting.token || setting.token === 'YOUR_API_TOKEN_HERE') {
+        addLog('GET', '❌ No Token', 'error', 'Please set API token first');
+        updateLogs();
+        return;
+      }
+
+      const url = `${PIPEDRIVE_BASE_URL}/deals?api_token=${setting.token}&status=open&limit=50`;
+      addLog('GET', '🔄 Fetching Open Deals...', 'info', url);
+
+      fetch(url)
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            const deals = data.data || [];
+            const displayValue = JSON.stringify(deals, null, 2);
+            addLog('GET', `✅ Found ${deals.length} Open Deals`, 'success', displayValue);
+          } else {
+            addLog('GET', '❌ Fetch Failed', 'error', data.error || 'Unknown error');
+          }
+          updateLogs();
+        })
+        .catch(err => {
+          addLog('GET', '❌ Fetch Error', 'error', err.message);
+          updateLogs();
+        });
+    }
+
+    function createDeal() {
+      if (!setting.token || setting.token === 'YOUR_API_TOKEN_HERE') {
+        addLog('CREATE', '❌ No Token', 'error', 'Please set API token first');
+        updateLogs();
+        return;
+      }
+
+      const title = document.getElementById('create-title').value.trim();
+      const value = document.getElementById('create-value').value.trim();
+      const currency = document.getElementById('create-currency').value.trim();
+      const stageId = document.getElementById('create-stage').value.trim();
+
+      if (!title) {
+        addLog('CREATE', '⚠️ Missing Title', 'error', 'Deal title is required');
+        updateLogs();
+        return;
+      }
+
+      const dealData = {
+        title: title,
+        value: value ? parseInt(value) : 0,
+        currency: currency || 'USD',
+        stage_id: stageId ? parseInt(stageId) : 1
+      };
+
+      const personId = document.getElementById('create-person').value.trim();
+      if (personId) dealData.person_id = parseInt(personId);
+
+      const companyId = document.getElementById('create-company').value.trim();
+      if (companyId) dealData.org_id = parseInt(companyId);
+
+      const notes = document.getElementById('create-notes').value.trim();
+      if (notes) dealData.notes = notes;
+
+      const url = `${PIPEDRIVE_BASE_URL}/deals?api_token=${setting.token}`;
+      addLog('CREATE', '🔄 Creating Deal...', 'info', JSON.stringify(dealData, null, 2));
+
+      fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dealData)
+      })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            const displayValue = JSON.stringify(data.data, null, 2);
+            addLog('CREATE', `✅ Deal Created (ID: ${data.data.id})`, 'success', displayValue);
+          } else {
+            addLog('CREATE', '❌ Creation Failed', 'error', data.error || 'Unknown error');
+          }
+          updateLogs();
+        })
+        .catch(err => {
+          addLog('CREATE', '❌ Creation Error', 'error', err.message);
+          updateLogs();
+        });
+    }
+
+    function updateDeal() {
+      if (!setting.token || setting.token === 'YOUR_API_TOKEN_HERE') {
+        addLog('UPDATE', '❌ No Token', 'error', 'Please set API token first');
+        updateLogs();
+        return;
+      }
+
+      const dealId = document.getElementById('update-deal-id').value.trim();
+      if (!dealId) {
+        addLog('UPDATE', '⚠️ No Deal ID', 'error', 'Deal ID is required');
+        updateLogs();
+        return;
+      }
+
+      const updateData = {};
+      const title = document.getElementById('update-title').value.trim();
+      if (title) updateData.title = title;
+
+      const value = document.getElementById('update-value').value.trim();
+      if (value) updateData.value = parseInt(value);
+
+      const stageId = document.getElementById('update-stage').value.trim();
+      if (stageId) updateData.stage_id = parseInt(stageId);
+
+      const notes = document.getElementById('update-notes').value.trim();
+      if (notes) updateData.notes = notes;
+
+      if (Object.keys(updateData).length === 0) {
+        addLog('UPDATE', '⚠️ No Fields', 'error', 'Please enter at least one field to update');
+        updateLogs();
+        return;
+      }
+
+      const url = `${PIPEDRIVE_BASE_URL}/deals/${dealId}?api_token=${setting.token}`;
+      addLog('UPDATE', `🔄 Updating Deal ${dealId}...`, 'info', JSON.stringify(updateData, null, 2));
+
+      fetch(url, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateData)
+      })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            const displayValue = JSON.stringify(data.data, null, 2);
+            addLog('UPDATE', `✅ Deal ${dealId} Updated`, 'success', displayValue);
+          } else {
+            addLog('UPDATE', '❌ Update Failed', 'error', data.error || 'Unknown error');
+          }
+          updateLogs();
+        })
+        .catch(err => {
+          addLog('UPDATE', '❌ Update Error', 'error', err.message);
+          updateLogs();
+        });
+    }
+
+    function deleteDeal() {
+      if (!setting.token || setting.token === 'YOUR_API_TOKEN_HERE') {
+        addLog('DELETE', '❌ No Token', 'error', 'Please set API token first');
+        updateLogs();
+        return;
+      }
+
+      const dealId = document.getElementById('delete-deal-id').value.trim();
+      if (!dealId) {
+        addLog('DELETE', '⚠️ No Deal ID', 'error', 'Deal ID is required');
+        updateLogs();
+        return;
+      }
+
+      if (!confirm(`Are you sure you want to delete deal ${dealId}? This cannot be undone.`)) {
+        addLog('DELETE', 'ℹ️ Cancelled', 'info', 'Delete operation cancelled');
+        updateLogs();
+        return;
+      }
+
+      const url = `${PIPEDRIVE_BASE_URL}/deals/${dealId}?api_token=${setting.token}`;
+      addLog('DELETE', `🔄 Deleting Deal ${dealId}...`, 'info', url);
+
+      fetch(url, { method: 'DELETE' })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            addLog('DELETE', `✅ Deal ${dealId} Deleted`, 'success', 'Deal successfully deleted');
+          } else {
+            addLog('DELETE', '❌ Delete Failed', 'error', data.error || 'Unknown error');
+          }
+          updateLogs();
+        })
+        .catch(err => {
+          addLog('DELETE', '❌ Delete Error', 'error', err.message);
+          updateLogs();
+        });
+    }
+
+    function searchDeals() {
+      if (!setting.token || setting.token === 'YOUR_API_TOKEN_HERE') {
+        addLog('SEARCH', '❌ No Token', 'error', 'Please set API token first');
+        updateLogs();
+        return;
+      }
+
+      let url = `${PIPEDRIVE_BASE_URL}/deals?api_token=${setting.token}`;
+      const searchTerm = document.getElementById('search-term').value.trim();
+      if (searchTerm) {
+        url += `&title=${encodeURIComponent(searchTerm)}`;
+      }
+
+      const minValue = document.getElementById('search-min').value.trim();
+      if (minValue) {
+        url += `&value_gte=${minValue}`;
+      }
+
+      const maxValue = document.getElementById('search-max').value.trim();
+      if (maxValue) {
+        url += `&value_lte=${maxValue}`;
+      }
+
+      const status = document.getElementById('search-status').value.trim();
+      if (status) {
+        url += `&status=${status}`;
+      }
+
+      addLog('SEARCH', '🔄 Searching Deals...', 'info', url);
+
+      fetch(url)
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            const deals = data.data || [];
+            const displayValue = JSON.stringify(deals, null, 2);
+            addLog('SEARCH', `✅ Found ${deals.length} Matching Deals`, 'success', displayValue);
+          } else {
+            addLog('SEARCH', '❌ Search Failed', 'error', data.error || 'Unknown error');
+          }
+          updateLogs();
+        })
+        .catch(err => {
+          addLog('SEARCH', '❌ Search Error', 'error', err.message);
+          updateLogs();
+        });
+    }
+
+    function switchTab(tabName) {
+      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+      
+      document.getElementById(tabName).classList.add('active');
+      event.target.classList.add('active');
+      
+      currentTab = tabName;
+      updateLogs();
+    }
+
+    function addLog(type, title, logType, message) {
+      const entry = { 
+        type, 
+        title, 
+        logType, 
+        message, 
+        timestamp: new Date().toLocaleTimeString() 
+      };
+      allLogs.push(entry);
+      if (allLogs.length > LOG_LIMIT) allLogs.shift();
+      console.log(`[${type}] ${title}:`, message);
+    }
+
+    function updateLogs() {
+      const logDiv = document.getElementById(`${currentTab}-log`) || document.getElementById('combined-log');
+      
+      if (!logDiv) return;
+
+      let logsToDisplay = allLogs;
+      if (currentTab !== 'logs') {
+        logsToDisplay = allLogs.filter(log => {
+          if (currentTab === 'auth') return log.type === 'AUTH';
+          if (currentTab === 'get-deals') return log.type === 'GET';
+          if (currentTab === 'create-deal') return log.type === 'CREATE';
+          if (currentTab === 'update-deal') return log.type === 'UPDATE';
+          if (currentTab === 'delete-deal') return log.type === 'DELETE';
+          if (currentTab === 'search') return log.type === 'SEARCH';
+          return true;
+        });
+      }
+
+      if (logsToDisplay.length > 0) {
+        logDiv.innerHTML = logsToDisplay.map(log =>
+          `<div class="log-entry ${log.logType}"><strong>${log.timestamp}</strong> | ${log.title}<br>${log.message}</div>`
+        ).join('');
+        logDiv.scrollTop = logDiv.scrollHeight;
+      } else {
+        logDiv.innerHTML = '<div class="log-entry info">No logs yet</div>';
+      }
+    }
+
+    function clearAllLogs() {
+      allLogs = [];
+      updateLogs();
+      addLog('SYSTEM', '🗑️ Logs Cleared', 'info', 'All logs cleared');
+      updateLogs();
+    }
+
+    // Initial
+    console.log('=== Pipedrive Deal Manager Started ===');
+    addLog('SYSTEM', '✅ Ready', 'success', 'Pipedrive Deal Manager initialized');
+    updateLogs();
+  </script>
+</body>
+</html>
