@@ -448,6 +448,9 @@
       }
     }
 
+    // Render init logs on auth tab
+    updateLogs();
+
     function setStatus(status) {
       const badge = document.getElementById('status');
       if (!badge) return;
@@ -896,6 +899,7 @@
       allLogs.push(entry);
       if (allLogs.length > LOG_LIMIT) allLogs.shift();
       console.log(`[${type}] ${title}:`, message);
+      updateLogs();
     }
 
     function updateLogs() {
