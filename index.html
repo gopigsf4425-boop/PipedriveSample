@@ -425,27 +425,25 @@
     const LOG_LIMIT = 100;
     const PIPEDRIVE_BASE_URL = 'https://api.pipedrive.com/v1';
 
-    // Initialize SDK — same pattern as reference app
+    // Initialize SDK
     console.log('=== Pipedrive Deal Manager Starting ===');
     console.log('BAFClient:', typeof BAFClient);
 
     if (typeof BAFClient === 'undefined') {
-      addLog('SYSTEM', '❌ SDK Load Failed', 'error', 'BAFClient not available. Make sure the SDK script is loaded.');
+      addLog('SYSTEM', '❌ SDK Load Failed', 'error', 'BAFClient not available');
       setStatus('error');
     } else {
       client = BAFClient.init();
       console.log('Client initialized:', typeof client);
 
       if (typeof client === 'object' && client !== null && typeof client.get === 'function') {
-        addLog('SYSTEM', '✅ SDK Ready', 'success', 'BAFClient initialized — Pipedrive Deal Manager active');
+        addLog('SYSTEM', '✅ SDK Initialized', 'success', 'BAFClient ready — Pipedrive Deal Manager active');
         setStatus('ready');
       } else if (client === false) {
-        client = null; // keep null so !client guards work correctly
-        addLog('SYSTEM', '❌ SDK Init Failed', 'error', 'Missing URL parameters — app must be loaded as iframe inside BoldDesk with ?origin=...&app_guid=...');
+        addLog('SYSTEM', '❌ SDK Init Failed', 'error', 'Missing URL parameters — App must be loaded as iframe with ?origin=...&app_guid=...');
         setStatus('error');
       } else {
-        client = null;
-        addLog('SYSTEM', '❌ SDK Init Failed', 'error', 'Unexpected client type: ' + typeof client);
+        addLog('SYSTEM', '❌ SDK Init Failed', 'error', 'Client type: ' + typeof client);
         setStatus('error');
       }
     }
