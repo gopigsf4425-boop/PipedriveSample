@@ -202,7 +202,7 @@
         data => {
           // BoldDesk returns an object like { email: '...', name: '...' }
           if (typeof data === 'object' && data !== null) {
-            requesterEmail = data.email || data.requester_email || Object.values(data)[0] || '';
+            requesterEmail = data.emailId || data.requester_email || Object.values(data)[0] || '';
           } else {
             requesterEmail = String(data);
           }
