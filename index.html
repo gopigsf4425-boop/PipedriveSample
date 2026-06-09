@@ -438,21 +438,79 @@
       addLog('SYSTEM', '❌ SDK Load Failed', 'error', 'BAFClient not available');
       setStatus('error');
     } else {
-      // BAFClient.init() internally does new Client() with no args, so origin/*appGuid are
-      // lost. We call init() first to get the Client instance, then overwrite origin + appGuid
-      // so every subsequent postMessage targets the correct BoldDesk parent frame.
       client = BAFClient.init();
 
       // Patch origin and appGuid onto the live client instance
       client.origin  = _origin;
       client.appGuid = _appGuid;
 
-      console.log('Client:', client, '| origin:', client.origin, '| appGuid:', client.appGuid);
+      console.log('Client initialized:', typeof client);
 
       if (typeof client === 'object' && client !== null && typeof client.request === 'function') {
         addLog('SYSTEM', '✅ SDK Initialized', 'success',
           'BAFClient ready | origin: ' + _origin + ' | appGuid: ' + (_appGuid || '(none — set app_guid in URL)'));
         setStatus('ready');
+
+        // Add DB API namespace to client
+        client.db = {
+          set: function(key, value) {
+            return new Promise((resolve, reject) => {
+              const messageId = 'msg-' + Math.random().toString(36).substr(2, 9);
+              const handleResponse = event => {
+                if (event.data.type === 'db.response' && event.data.messageId === messageId) {
+                  window.removeEventListener('message', handleResponse);
+                  event.data.success ? resolve(event.data.data) : reject(event.data.error || new Error('DB set failed'));
+                }
+              };
+              window.addEventListener('message', handleResponse);
+              window.parent.postMessage({ type: 'db.request', operation: 'set', key, value, messageId }, '*');
+            });
+          },
+          get: function(key) {
+            return new Promise((resolve, reject) => {
+              const messageId = 'msg-' + Math.random().toString(36).substr(2, 9);
+              const handleResponse = event => {
+                if (event.data.type === 'db.response' && event.data.messageId === messageId) {
+                  window.removeEventListener('message', handleResponse);
+                  event.data.success ? resolve(event.data.data) : reject(event.data.error || new Error('DB get failed'));
+                }
+              };
+              window.addEventListener('message', handleResponse);
+              window.parent.postMessage({ type: 'db.request', operation: 'get', key, messageId }, '*');
+            });
+          },
+          update: function(key, value) {
+            return new Promise((resolve, reject) => {
+              const messageId = 'msg-' + Math.random().toString(36).substr(2, 9);
+              const handleResponse = event => {
+                if (event.data.type === 'db.response' && event.data.messageId === messageId) {
+                  window.removeEventListener('message', handleResponse);
+                  event.data.success ? resolve(event.data.data) : reject(event.data.error || new Error('DB update failed'));
+                }
+              };
+              window.addEventListener('message', handleResponse);
+              window.parent.postMessage({ type: 'db.request', operation: 'update', key, value, messageId }, '*');
+            });
+          },
+          delete: function(key) {
+            return new Promise((resolve, reject) => {
+              const messageId = 'msg-' + Math.random().toString(36).substr(2, 9);
+              const handleResponse = event => {
+                if (event.data.type === 'db.response' && event.data.messageId === messageId) {
+                  window.removeEventListener('message', handleResponse);
+                  event.data.success ? resolve(event.data.data) : reject(event.data.error || new Error('DB delete failed'));
+                }
+              };
+              window.addEventListener('message', handleResponse);
+              window.parent.postMessage({ type: 'db.request', operation: 'delete', key, messageId }, '*');
+            });
+          }
+        };
+        addLog('SYSTEM', '✅ DB API Ready', 'success', 'Database API namespace added to client');
+
+      } else if (client === false) {
+        addLog('SYSTEM', '❌ SDK Init Failed', 'error', 'Missing URL parameters — App must be loaded as iframe with ?origin=...&app_guid=...');
+        setStatus('error');
       } else {
         addLog('SYSTEM', '❌ SDK Init Failed', 'error', 'Unexpected client: ' + typeof client);
         setStatus('error');
@@ -487,12 +545,12 @@
       addLog('AUTH', '🔄 Testing Connection...', 'info', options.url);
 
       client.request(options).then(
-        function (response) {
+        response => {
           const displayValue = typeof response === 'object' ? JSON.stringify(response, null, 2) : String(response);
           addLog('AUTH', '✅ Connection Success', 'success', displayValue);
           updateLogs();
         },
-        function (err) {
+        err => {
           addLog('AUTH', '❌ Connection Failed', 'error', (err && err.message) ? err.message : 'Unknown error');
           updateLogs();
         }
@@ -520,12 +578,12 @@
       addLog('GET', '🔄 Fetching All Deals...', 'info', options.url);
 
       client.request(options).then(
-        function (response) {
+        response => {
           const displayValue = typeof response === 'object' ? JSON.stringify(response, null, 2) : String(response);
           addLog('GET', '✅ All Deals Retrieved', 'success', displayValue);
           updateLogs();
         },
-        function (err) {
+        err => {
           addLog('GET', '❌ Fetch Failed', 'error', (err && err.message) ? err.message : 'Unknown error');
           updateLogs();
         }
@@ -558,12 +616,12 @@
       addLog('GET', '🔄 Fetching Deal ' + dealId + '...', 'info', options.url);
 
       client.request(options).then(
-        function (response) {
+        response => {
           const displayValue = typeof response === 'object' ? JSON.stringify(response, null, 2) : String(response);
           addLog('GET', '✅ Deal ' + dealId + ' Retrieved', 'success', displayValue);
           updateLogs();
         },
-        function (err) {
+        err => {
           addLog('GET', '❌ Fetch Failed', 'error', (err && err.message) ? err.message : 'Unknown error');
           updateLogs();
         }
@@ -596,12 +654,12 @@
       addLog('GET', '🔄 Fetching Deals for User ' + userId + '...', 'info', options.url);
 
       client.request(options).then(
-        function (response) {
+        response => {
           const displayValue = typeof response === 'object' ? JSON.stringify(response, null, 2) : String(response);
           addLog('GET', '✅ Deals for User ' + userId + ' Retrieved', 'success', displayValue);
           updateLogs();
         },
-        function (err) {
+        err => {
           addLog('GET', '❌ Fetch Failed', 'error', (err && err.message) ? err.message : 'Unknown error');
           updateLogs();
         }
@@ -627,12 +685,12 @@
       addLog('GET', '🔄 Fetching Stages...', 'info', options.url);
 
       client.request(options).then(
-        function (response) {
+        response => {
           const displayValue = typeof response === 'object' ? JSON.stringify(response, null, 2) : String(response);
           addLog('GET', '✅ Stages Retrieved', 'success', displayValue);
           updateLogs();
         },
-        function (err) {
+        err => {
           addLog('GET', '❌ Fetch Failed', 'error', (err && err.message) ? err.message : 'Unknown error');
           updateLogs();
         }
@@ -658,12 +716,12 @@
       addLog('GET', '🔄 Fetching Open Deals...', 'info', options.url);
 
       client.request(options).then(
-        function (response) {
+        response => {
           const displayValue = typeof response === 'object' ? JSON.stringify(response, null, 2) : String(response);
           addLog('GET', '✅ Open Deals Retrieved', 'success', displayValue);
           updateLogs();
         },
-        function (err) {
+        err => {
           addLog('GET', '❌ Fetch Failed', 'error', (err && err.message) ? err.message : 'Unknown error');
           updateLogs();
         }
@@ -719,12 +777,12 @@
       addLog('CREATE', '🔄 Creating Deal...', 'info', JSON.stringify(dealData, null, 2));
 
       client.request(options).then(
-        function (response) {
+        response => {
           const displayValue = typeof response === 'object' ? JSON.stringify(response, null, 2) : String(response);
           addLog('CREATE', '✅ Deal Created', 'success', displayValue);
           updateLogs();
         },
-        function (err) {
+        err => {
           addLog('CREATE', '❌ Creation Failed', 'error', (err && err.message) ? err.message : 'Unknown error');
           updateLogs();
         }
@@ -779,12 +837,12 @@
       addLog('UPDATE', '🔄 Updating Deal ' + dealId + '...', 'info', JSON.stringify(updateData, null, 2));
 
       client.request(options).then(
-        function (response) {
+        response => {
           const displayValue = typeof response === 'object' ? JSON.stringify(response, null, 2) : String(response);
           addLog('UPDATE', '✅ Deal ' + dealId + ' Updated', 'success', displayValue);
           updateLogs();
         },
-        function (err) {
+        err => {
           addLog('UPDATE', '❌ Update Failed', 'error', (err && err.message) ? err.message : 'Unknown error');
           updateLogs();
         }
@@ -825,12 +883,12 @@
       addLog('DELETE', '🔄 Deleting Deal ' + dealId + '...', 'info', options.url);
 
       client.request(options).then(
-        function (response) {
+        response => {
           const displayValue = typeof response === 'object' ? JSON.stringify(response, null, 2) : String(response);
           addLog('DELETE', '✅ Deal ' + dealId + ' Deleted', 'success', displayValue);
           updateLogs();
         },
-        function (err) {
+        err => {
           addLog('DELETE', '❌ Delete Failed', 'error', (err && err.message) ? err.message : 'Unknown error');
           updateLogs();
         }
@@ -873,12 +931,12 @@
       addLog('SEARCH', '🔄 Searching Deals...', 'info', options.url);
 
       client.request(options).then(
-        function (response) {
+        response => {
           const displayValue = typeof response === 'object' ? JSON.stringify(response, null, 2) : String(response);
           addLog('SEARCH', '✅ Search Results Retrieved', 'success', displayValue);
           updateLogs();
         },
-        function (err) {
+        err => {
           addLog('SEARCH', '❌ Search Failed', 'error', (err && err.message) ? err.message : 'Unknown error');
           updateLogs();
         }
