@@ -425,31 +425,39 @@
     const LOG_LIMIT = 100;
     const PIPEDRIVE_BASE_URL = 'https://api.pipedrive.com/v1';
 
-    // Initialize SDK
+    // Initialize SDK — read origin + app_guid from URL params injected by BoldDesk
+    const _params = new URLSearchParams(window.location.search);
+    const _origin = _params.get('origin') || '*';
+    const _appGuid = _params.get('app_guid') || _params.get('appGuid') || undefined;
+
     console.log('=== Pipedrive Deal Manager Starting ===');
+    console.log('origin:', _origin, '| app_guid:', _appGuid);
     console.log('BAFClient:', typeof BAFClient);
 
     if (typeof BAFClient === 'undefined') {
       addLog('SYSTEM', '❌ SDK Load Failed', 'error', 'BAFClient not available');
       setStatus('error');
     } else {
+      // BAFClient.init() internally does new Client() with no args, so origin/*appGuid are
+      // lost. We call init() first to get the Client instance, then overwrite origin + appGuid
+      // so every subsequent postMessage targets the correct BoldDesk parent frame.
       client = BAFClient.init();
-      console.log('Client initialized:', typeof client);
 
-      if (typeof client === 'object' && client !== null && typeof client.get === 'function') {
-        addLog('SYSTEM', '✅ SDK Initialized', 'success', 'BAFClient ready — Pipedrive Deal Manager active');
+      // Patch origin and appGuid onto the live client instance
+      client.origin  = _origin;
+      client.appGuid = _appGuid;
+
+      console.log('Client:', client, '| origin:', client.origin, '| appGuid:', client.appGuid);
+
+      if (typeof client === 'object' && client !== null && typeof client.request === 'function') {
+        addLog('SYSTEM', '✅ SDK Initialized', 'success',
+          'BAFClient ready | origin: ' + _origin + ' | appGuid: ' + (_appGuid || '(none — set app_guid in URL)'));
         setStatus('ready');
-      } else if (client === false) {
-        addLog('SYSTEM', '❌ SDK Init Failed', 'error', 'Missing URL parameters — App must be loaded as iframe with ?origin=...&app_guid=...');
-        setStatus('error');
       } else {
-        addLog('SYSTEM', '❌ SDK Init Failed', 'error', 'Client type: ' + typeof client);
+        addLog('SYSTEM', '❌ SDK Init Failed', 'error', 'Unexpected client: ' + typeof client);
         setStatus('error');
       }
     }
-
-    // Render init logs on auth tab
-    updateLogs();
 
     function setStatus(status) {
       const badge = document.getElementById('status');
