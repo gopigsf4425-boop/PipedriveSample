@@ -3,1007 +3,454 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Pipedrive Deal Manager</title>
+  <title>Pipedrive Lookup</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { 
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-      background: #f5f5f5;
-      padding: 15px;
-      min-height: 100vh;
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #fff;
+      color: #333;
+      font-size: 13px;
     }
-    .container { 
-      max-width: 100%;
-      background: white; 
-      border-radius: 8px; 
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-      overflow: hidden;
-      min-height: 90vh;
-    }
-    header {
-      background: linear-gradient(135deg, #1f3a93 0%, #2d5016 100%);
-      color: white;
-      padding: 15px;
-      text-align: center;
-    }
-    header h1 { font-size: 20px; margin-bottom: 3px; }
-    header p { font-size: 11px; opacity: 0.9; }
-    
     .tabs {
       display: flex;
-      background: #f0f0f0;
-      border-bottom: 2px solid #ddd;
-      overflow-x: auto;
+      border-bottom: 1px solid #e0e0e0;
+      background: #fff;
+      position: sticky;
+      top: 0;
+      z-index: 10;
     }
-    
-    .tab-button {
+    .tab-btn {
       flex: 1;
-      padding: 10px 12px;
+      padding: 13px 8px;
       border: none;
       background: transparent;
       cursor: pointer;
-      font-size: 12px;
+      font-size: 13px;
       font-weight: 500;
       color: #666;
-      border-bottom: 3px solid transparent;
-      transition: all 0.3s;
-      white-space: nowrap;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
     }
-    
-    .tab-button.active {
-      color: #1f3a93;
-      border-bottom-color: #1f3a93;
-      background: white;
+    .tab-btn.active { color: #1a73e8; border-bottom-color: #1a73e8; }
+    .tab-btn:hover:not(.active) { color: #333; background: #f5f5f5; }
+    .tab-panel { display: none; padding: 12px; }
+    .tab-panel.active { display: block; }
+    .info-strip {
+      padding: 7px 12px;
+      background: #f0f4ff;
+      border-bottom: 1px solid #dce6ff;
+      font-size: 11px;
+      color: #555;
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
-    
-    .tab-button:hover {
-      background: white;
+    .info-strip .dot { width: 7px; height: 7px; border-radius: 50%; background: #aaa; flex-shrink: 0; }
+    .info-strip .dot.ready { background: #34a853; }
+    .info-strip .dot.error { background: #ea4335; }
+    .card {
+      background: #fff;
+      border: 1px solid #e8eaf0;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      overflow: hidden;
     }
-    
-    .tab-content {
-      display: none;
-      padding: 15px;
-      animation: fadeIn 0.3s;
-      min-height: 900px;
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px;
+      background: #eef2fb;
+      cursor: pointer;
+      user-select: none;
     }
-    
-    .tab-content.active {
-      display: block;
-    }
-    
-    @keyframes fadeIn {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
-    
-    .test-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    .card-header .card-title { font-weight: 600; font-size: 13px; color: #1f3a93; }
+    .card-header .chevron { font-size: 13px; color: #666; transition: transform 0.2s; }
+    .card-header.collapsed .chevron { transform: rotate(-90deg); }
+    .card-body.hidden { display: none; }
+    .field-row { padding: 10px 14px; border-bottom: 1px solid #f0f0f0; }
+    .field-row:last-child { border-bottom: none; }
+    .field-label { font-size: 11px; color: #888; margin-bottom: 2px; }
+    .field-value { font-size: 13px; color: #222; font-weight: 500; word-break: break-all; }
+    .field-value.empty { color: #bbb; font-weight: 400; }
+    .state-msg { text-align: center; padding: 32px 16px; color: #aaa; font-size: 12px; }
+    .state-msg .icon { font-size: 28px; margin-bottom: 8px; }
+    .state-msg.error-msg { color: #ea4335; }
+    .loading-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
       gap: 8px;
-      margin-bottom: 15px;
+      padding: 32px 16px;
+      color: #888;
+      font-size: 12px;
     }
-    
-    button {
-      padding: 8px 12px;
-      background: #1f3a93;
-      color: white;
+    .spinner {
+      display: inline-block;
+      width: 18px; height: 18px;
+      border: 2px solid #ddd;
+      border-top-color: #1a73e8;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .requester-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: #e8f0fe;
+      color: #1a73e8;
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 11px;
+      font-weight: 500;
+      margin-bottom: 12px;
+    }
+    .retry-btn {
+      margin-top: 10px;
+      padding: 6px 14px;
+      background: #1a73e8;
+      color: #fff;
       border: none;
       border-radius: 6px;
       cursor: pointer;
-      font-size: 11px;
-      font-weight: 500;
-      transition: all 0.3s;
-    }
-    
-    button:hover {
-      background: #2d5016;
-      transform: translateY(-1px);
-    }
-    
-    button:active { transform: translateY(0); }
-    
-    .output {
-      background: #1e1e1e;
-      color: #00ff00;
-      padding: 12px;
-      border-radius: 6px;
-      font-family: 'Monaco', 'Courier New', monospace;
-      font-size: 11px;
-      max-height: 500px;
-      overflow-y: auto;
-      line-height: 1.4;
-      white-space: pre-wrap;
-      word-break: break-all;
-    }
-    
-    .log-entry {
-      margin-bottom: 3px;
-      padding: 3px;
-      border-left: 2px solid transparent;
-    }
-    
-    .log-entry.success { border-left-color: #00ff00; color: #00ff00; }
-    .log-entry.error { border-left-color: #ff6b6b; color: #ff6b6b; }
-    .log-entry.info { border-left-color: #4ecdc4; color: #4ecdc4; }
-    .log-entry.warning { border-left-color: #ffd93d; color: #ffd93d; }
-    
-    .status-badge {
-      display: inline-block;
-      padding: 4px 8px;
-      border-radius: 20px;
-      font-size: 10px;
-      font-weight: bold;
-      margin-bottom: 10px;
-    }
-    
-    .status-badge.ready {
-      background: #d4edda;
-      color: #155724;
-    }
-    
-    .status-badge.error {
-      background: #f8d7da;
-      color: #721c24;
-    }
-    
-    h3 {
-      color: #1f3a93;
-      font-size: 13px;
-      margin-bottom: 8px;
-      margin-top: 12px;
-    }
-    
-    h3:first-child { margin-top: 0; }
-    
-    .input-group {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      margin-bottom: 12px;
-      padding: 10px;
-      background: #f9f9f9;
-      border-radius: 6px;
-    }
-    
-    .input-group input, .input-group textarea {
-      padding: 6px 8px;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      font-size: 11px;
-      font-family: 'Monaco', monospace;
-    }
-    
-    .input-group textarea {
-      grid-column: 1 / -1;
-      min-height: 80px;
-      resize: vertical;
-    }
-    
-    p {
-      color: #666;
-      margin-bottom: 10px;
       font-size: 12px;
-      line-height: 1.5;
     }
-
-    .auth-panel {
-      padding: 15px;
-      background: #f0f0f0;
-      border-radius: 6px;
-      margin-bottom: 15px;
-      border-left: 3px solid #1f3a93;
-    }
-
-    .auth-panel h4 {
-      color: #1f3a93;
-      margin-bottom: 10px;
-      font-size: 13px;
-    }
-
-    .auth-panel input {
-      width: 100%;
-      padding: 8px;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      font-size: 11px;
-      margin-bottom: 8px;
-    }
+    .retry-btn:hover { background: #1558b0; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <h1>🎯 Pipedrive Deal Manager</h1>
-      <span class="status-badge ready" id="status">Ready to Connect</span>
-    </header>
 
-    <div class="tabs">
-      <button class="tab-button active" onclick="switchTab('auth')">🔐 Authentication</button>
-      <button class="tab-button" onclick="switchTab('get-deals')">📋 GET Deals</button>
-      <button class="tab-button" onclick="switchTab('create-deal')">➕ CREATE Deal</button>
-      <button class="tab-button" onclick="switchTab('update-deal')">✏️ UPDATE Deal</button>
-      <button class="tab-button" onclick="switchTab('delete-deal')">🗑️ DELETE Deal</button>
-      <button class="tab-button" onclick="switchTab('search')">🔍 Search Deals</button>
-      <button class="tab-button" onclick="switchTab('logs')">📊 Logs</button>
+  <!-- Status strip -->
+  <div class="info-strip">
+    <span class="dot" id="status-dot"></span>
+    <span id="status-text">Initializing…</span>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('contacts', this)">Contacts</button>
+    <button class="tab-btn" onclick="switchTab('companies', this)">Companies</button>
+    <button class="tab-btn" onclick="switchTab('deals', this)">Deals</button>
+  </div>
+
+  <!-- Contacts Panel -->
+  <div id="tab-contacts" class="tab-panel active">
+    <div id="contacts-content">
+      <div class="loading-wrap"><span class="spinner"></span> Loading…</div>
     </div>
+  </div>
 
-    <!-- Authentication -->
-    <div id="auth" class="tab-content active">
-      <h3>🔐 Pipedrive API Authentication</h3>
-      <p>Your API token is configured via the <code>setting.token</code> variable. Edit your code to change it.</p>
-      
-      <div class="auth-panel">
-        <h4>📝 Current Configuration</h4>
-        <p style="font-size: 11px; color: #333;">
-          The API token is supplied via <code>{{setting.token}}</code> — a BoldDesk SDK template
-          placeholder resolved automatically at runtime from your app's <strong>Settings</strong>.
-        </p>
-        <p style="font-size: 10px; color: #888; margin-top: 6px;">
-          To change the token, update the <code>token</code> field in your BoldDesk app settings panel.
-          No code changes are required.
-        </p>
-      </div>
-
-      <div class="auth-panel">
-        <h4>🧪 Test Connection</h4>
-        <button onclick="testConnection()" style="width: 100%;">✅ Test Connection</button>
-      </div>
-
-      <h3>📊 Auth Output</h3>
-      <div id="auth-log" class="output"></div>
+  <!-- Companies Panel -->
+  <div id="tab-companies" class="tab-panel">
+    <div id="companies-content">
+      <div class="state-msg"><div class="icon">🏢</div>Switch to this tab to load companies.</div>
     </div>
+  </div>
 
-    <!-- GET Deals -->
-    <div id="get-deals" class="tab-content">
-      <h3>📋 Get Deals Information</h3>
-      <p>Click buttons to retrieve deals data from Pipedrive</p>
-      
-      <div class="test-grid">
-        <button onclick="getAllDeals()">📊 Get All Deals</button>
-        <button onclick="getDealById()">🔍 Get Deal by ID</button>
-        <button onclick="getDealsByUser()">👤 Deals by User</button>
-        <button onclick="getDealsByStage()">📈 Deals by Stage</button>
-        <button onclick="getDealsByStatus()">🔖 Deals by Status</button>
-      </div>
-
-      <div class="input-group">
-        <div>
-          <label style="display: block; font-size: 11px; color: #333; margin-bottom: 4px;">Deal ID:</label>
-          <input type="text" id="get-deal-id" placeholder="e.g., 123456" value="">
-        </div>
-        <div>
-          <label style="display: block; font-size: 11px; color: #333; margin-bottom: 4px;">User ID:</label>
-          <input type="text" id="get-user-id" placeholder="e.g., 456789" value="">
-        </div>
-      </div>
-      
-      <h3>📊 GET Output</h3>
-      <div id="get-deals-log" class="output"></div>
-    </div>
-
-    <!-- CREATE Deal -->
-    <div id="create-deal" class="tab-content">
-      <h3>➕ Create New Deal</h3>
-      <p>Fill in the deal details and click CREATE</p>
-      
-      <div class="input-group">
-        <div>
-          <label style="display: block; font-size: 11px; color: #333; margin-bottom: 4px;">Deal Title:</label>
-          <input type="text" id="create-title" placeholder="e.g., Enterprise License" value="New Deal from API">
-        </div>
-        <div>
-          <label style="display: block; font-size: 11px; color: #333; margin-bottom: 4px;">Value:</label>
-          <input type="number" id="create-value" placeholder="e.g., 50000" value="50000">
-        </div>
-        <div>
-          <label style="display: block; font-size: 11px; color: #333; margin-bottom: 4px;">Currency:</label>
-          <input type="text" id="create-currency" placeholder="e.g., USD" value="USD">
-        </div>
-        <div>
-          <label style="display: block; font-size: 11px; color: #333; margin-bottom: 4px;">Stage ID:</label>
-          <input type="text" id="create-stage" placeholder="e.g., 1" value="1">
-        </div>
-        <div>
-          <label style="display: block; font-size: 11px; color: #333; margin-bottom: 4px;">Person ID:</label>
-          <input type="text" id="create-person" placeholder="e.g., 123456" value="">
-        </div>
-        <div>
-          <label style="display: block; font-size: 11px; color: #333; margin-bottom: 4px;">Company ID:</label>
-          <input type="text" id="create-company" placeholder="e.g., 789012" value="">
-        </div>
-        <textarea id="create-notes" placeholder="Deal notes (optional)...">Created via API Test Tool</textarea>
-      </div>
-
-      <div class="test-grid">
-        <button onclick="createDeal()" style="grid-column: 1 / -1;">✅ CREATE DEAL</button>
-      </div>
-
-      <h3>📊 CREATE Output</h3>
-      <div id="create-deal-log" class="output"></div>
-    </div>
-
-    <!-- UPDATE Deal -->
-    <div id="update-deal" class="tab-content">
-      <h3>✏️ Update Existing Deal</h3>
-      <p>Enter deal ID and fields to update</p>
-      
-      <div class="input-group">
-        <div>
-          <label style="display: block; font-size: 11px; color: #333; margin-bottom: 4px;">Deal ID (Required):</label>
-          <input type="text" id="update-deal-id" placeholder="e.g., 123456" value="">
-        </div>
-        <div>
-          <label style="display: block; font-size: 11px; color: #333; margin-bottom: 4px;">Deal Title:</label>
-          <input type="text" id="update-title" placeholder="e.g., Updated Title" value="">
-        </div>
-        <div>
-          <label style="display: block; font-size: 11px; color: #333; margin-bottom: 4px;">Value:</label>
-          <input type="number" id="update-value" placeholder="e.g., 75000" value="">
-        </div>
-        <div>
-          <label style="display: block; font-size: 11px; color: #333; margin-bottom: 4px;">Stage ID:</label>
-          <input type="text" id="update-stage" placeholder="e.g., 3" value="">
-        </div>
-        <textarea id="update-notes" placeholder="Updated notes (optional)..."></textarea>
-      </div>
-
-      <div class="test-grid">
-        <button onclick="updateDeal()" style="grid-column: 1 / -1;">🔄 UPDATE DEAL</button>
-      </div>
-
-      <h3>📊 UPDATE Output</h3>
-      <div id="update-deal-log" class="output"></div>
-    </div>
-
-    <!-- DELETE Deal -->
-    <div id="delete-deal" class="tab-content">
-      <h3>🗑️ Delete Deal</h3>
-      <p>Enter the Deal ID to delete</p>
-      
-      <div class="input-group">
-        <div>
-          <label style="display: block; font-size: 11px; color: #333; margin-bottom: 4px;">Deal ID to Delete:</label>
-          <input type="text" id="delete-deal-id" placeholder="e.g., 123456" value="">
-        </div>
-      </div>
-
-      <div class="test-grid">
-        <button onclick="deleteDeal()" style="grid-column: 1 / -1; background: #dc3545;">⚠️ DELETE DEAL</button>
-      </div>
-
-      <h3>📊 DELETE Output</h3>
-      <div id="delete-deal-log" class="output"></div>
-    </div>
-
-    <!-- Search Deals -->
-    <div id="search" class="tab-content">
-      <h3>🔍 Search Deals</h3>
-      <p>Search for deals using various filters</p>
-      
-      <div class="input-group">
-        <div>
-          <label style="display: block; font-size: 11px; color: #333; margin-bottom: 4px;">Search Term:</label>
-          <input type="text" id="search-term" placeholder="e.g., Enterprise" value="">
-        </div>
-        <div>
-          <label style="display: block; font-size: 11px; color: #333; margin-bottom: 4px;">Min Value:</label>
-          <input type="number" id="search-min" placeholder="e.g., 10000" value="">
-        </div>
-        <div>
-          <label style="display: block; font-size: 11px; color: #333; margin-bottom: 4px;">Max Value:</label>
-          <input type="number" id="search-max" placeholder="e.g., 100000" value="">
-        </div>
-        <div>
-          <label style="display: block; font-size: 11px; color: #333; margin-bottom: 4px;">Status:</label>
-          <input type="text" id="search-status" placeholder="e.g., open, won, lost" value="">
-        </div>
-      </div>
-
-      <div class="test-grid">
-        <button onclick="searchDeals()" style="grid-column: 1 / -1;">🔎 SEARCH</button>
-      </div>
-
-      <h3>📊 Search Output</h3>
-      <div id="search-log" class="output"></div>
-    </div>
-
-    <!-- Logs -->
-    <div id="logs" class="tab-content">
-      <h3>📊 Combined Logs</h3>
-      <div style="margin-bottom: 10px;">
-        <button onclick="clearAllLogs()">🗑️ Clear All Logs</button>
-      </div>
-      <div id="combined-log" class="output" style="min-height: 300px;"></div>
+  <!-- Deals Panel -->
+  <div id="tab-deals" class="tab-panel">
+    <div id="deals-content">
+      <div class="state-msg"><div class="icon">🤝</div>Switch to this tab to load deals.</div>
     </div>
   </div>
 
   <script src="https://unpkg.com/bolddesk-final-framework-sdk@1.0.37/build/baf_sdk.min.js"></script>
   <script>
-    let client = null;
-    let allLogs = [];
-    let currentTab = 'auth';
-    const LOG_LIMIT = 100;
-    const PIPEDRIVE_BASE_URL = 'https://api.pipedrive.com/v1';
+    // ── State ────────────────────────────────────────────────────────────────
+    let client         = null;
+    let requesterEmail = null;
+    let currentTab     = 'contacts';
+    const loaded       = { contacts: false, companies: false, deals: false };
 
-    // Initialize SDK — read origin + app_guid from URL params injected by BoldDesk
-    const _params = new URLSearchParams(window.location.search);
-    const _origin = _params.get('origin') || '*';
+    // ── SDK Init ─────────────────────────────────────────────────────────────
+    const _params  = new URLSearchParams(window.location.search);
+    const _origin  = _params.get('origin')   || '*';
     const _appGuid = _params.get('app_guid') || _params.get('appGuid') || undefined;
 
-    console.log('=== Pipedrive Deal Manager Starting ===');
-    console.log('origin:', _origin, '| app_guid:', _appGuid);
-    console.log('BAFClient:', typeof BAFClient);
+    function setStatus(ready, text) {
+      document.getElementById('status-dot').className = 'dot ' + (ready ? 'ready' : 'error');
+      document.getElementById('status-text').textContent = text;
+    }
 
     if (typeof BAFClient === 'undefined') {
-      addLog('SYSTEM', '❌ SDK Load Failed', 'error', 'BAFClient not available');
-      setStatus('error');
+      setStatus(false, 'SDK failed to load');
+      showError('contacts-content', 'BoldDesk SDK not available.');
     } else {
       client = BAFClient.init();
-
-      // Patch origin and appGuid onto the live client instance
       client.origin  = _origin;
       client.appGuid = _appGuid;
 
-      console.log('Client initialized:', typeof client);
+      console.log('Client initialized:', typeof client, '| origin:', _origin, '| appGuid:', _appGuid);
 
       if (typeof client === 'object' && client !== null && typeof client.request === 'function') {
-        addLog('SYSTEM', '✅ SDK Initialized', 'success',
-          'BAFClient ready | origin: ' + _origin + ' | appGuid: ' + (_appGuid || '(none — set app_guid in URL)'));
-        setStatus('ready');
-
-        // Add DB API namespace to client
-        client.db = {
-          set: function(key, value) {
-            return new Promise((resolve, reject) => {
-              const messageId = 'msg-' + Math.random().toString(36).substr(2, 9);
-              const handleResponse = event => {
-                if (event.data.type === 'db.response' && event.data.messageId === messageId) {
-                  window.removeEventListener('message', handleResponse);
-                  event.data.success ? resolve(event.data.data) : reject(event.data.error || new Error('DB set failed'));
-                }
-              };
-              window.addEventListener('message', handleResponse);
-              window.parent.postMessage({ type: 'db.request', operation: 'set', key, value, messageId }, '*');
-            });
-          },
-          get: function(key) {
-            return new Promise((resolve, reject) => {
-              const messageId = 'msg-' + Math.random().toString(36).substr(2, 9);
-              const handleResponse = event => {
-                if (event.data.type === 'db.response' && event.data.messageId === messageId) {
-                  window.removeEventListener('message', handleResponse);
-                  event.data.success ? resolve(event.data.data) : reject(event.data.error || new Error('DB get failed'));
-                }
-              };
-              window.addEventListener('message', handleResponse);
-              window.parent.postMessage({ type: 'db.request', operation: 'get', key, messageId }, '*');
-            });
-          },
-          update: function(key, value) {
-            return new Promise((resolve, reject) => {
-              const messageId = 'msg-' + Math.random().toString(36).substr(2, 9);
-              const handleResponse = event => {
-                if (event.data.type === 'db.response' && event.data.messageId === messageId) {
-                  window.removeEventListener('message', handleResponse);
-                  event.data.success ? resolve(event.data.data) : reject(event.data.error || new Error('DB update failed'));
-                }
-              };
-              window.addEventListener('message', handleResponse);
-              window.parent.postMessage({ type: 'db.request', operation: 'update', key, value, messageId }, '*');
-            });
-          },
-          delete: function(key) {
-            return new Promise((resolve, reject) => {
-              const messageId = 'msg-' + Math.random().toString(36).substr(2, 9);
-              const handleResponse = event => {
-                if (event.data.type === 'db.response' && event.data.messageId === messageId) {
-                  window.removeEventListener('message', handleResponse);
-                  event.data.success ? resolve(event.data.data) : reject(event.data.error || new Error('DB delete failed'));
-                }
-              };
-              window.addEventListener('message', handleResponse);
-              window.parent.postMessage({ type: 'db.request', operation: 'delete', key, messageId }, '*');
-            });
-          }
-        };
-        addLog('SYSTEM', '✅ DB API Ready', 'success', 'Database API namespace added to client');
-
+        setStatus(true, 'SDK ready — fetching requester…');
+        getRequesterAndLoad();
       } else if (client === false) {
-        addLog('SYSTEM', '❌ SDK Init Failed', 'error', 'Missing URL parameters — App must be loaded as iframe with ?origin=...&app_guid=...');
-        setStatus('error');
+        setStatus(false, 'Missing URL params (origin / app_guid)');
+        showError('contacts-content', 'App must be loaded inside BoldDesk as an iframe.');
       } else {
-        addLog('SYSTEM', '❌ SDK Init Failed', 'error', 'Unexpected client: ' + typeof client);
-        setStatus('error');
+        setStatus(false, 'SDK init failed');
+        showError('contacts-content', 'SDK initialization failed.');
       }
     }
 
-    function setStatus(status) {
-      const badge = document.getElementById('status');
-      if (!badge) return;
-      badge.className = 'status-badge ' + status;
-      badge.textContent = status === 'ready' ? '✅ SDK Ready' : '⚠️ SDK Error';
-    }
-
-    // ── Authentication ─────────────────────────────────────────────────────────
-
-    function testConnection() {
-      if (!client) {
-        addLog('AUTH', '❌ Client Not Initialized', 'error', 'BoldDesk SDK client is not initialized');
-        updateLogs();
-        return;
-      }
-
-      const options = {
-        url: 'https://api.pipedrive.com/v1/users/me',
-        type: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer {{setting.token}}'
-        }
-      };
-
-      addLog('AUTH', '🔄 Testing Connection...', 'info', options.url);
-
-      client.request(options).then(
-        response => {
-          const displayValue = typeof response === 'object' ? JSON.stringify(response, null, 2) : String(response);
-          addLog('AUTH', '✅ Connection Success', 'success', displayValue);
-          updateLogs();
+    // ── Get ticket.requester email via client.get() ──────────────────────────
+    function getRequesterAndLoad() {
+      client.get('ticket.requester').then(
+        data => {
+          // BoldDesk returns an object like { email: '...', name: '...' }
+          if (typeof data === 'object' && data !== null) {
+            requesterEmail = data.email || data.requester_email || Object.values(data)[0] || '';
+          } else {
+            requesterEmail = String(data);
+          }
+          console.log('ticket.requester =>', requesterEmail);
+          setStatus(true, 'Requester: ' + requesterEmail);
+          loaded.contacts = false;
+          loadTab('contacts');
         },
         err => {
-          addLog('AUTH', '❌ Connection Failed', 'error', (err && err.message) ? err.message : 'Unknown error');
-          updateLogs();
+          setStatus(false, 'Could not get ticket.requester');
+          showError('contacts-content',
+            'Could not retrieve ticket requester: ' + (err && err.message ? err.message : String(err)) +
+            '<br><button class="retry-btn" onclick="getRequesterAndLoad()">Retry</button>');
         }
       );
     }
 
-    // ── GET Deals ──────────────────────────────────────────────────────────────
-
-    function getAllDeals() {
-      if (!client) {
-        addLog('GET', '❌ Client Not Initialized', 'error', 'BoldDesk SDK client is not initialized');
-        updateLogs();
-        return;
-      }
-
-      const options = {
-        url: 'https://api.pipedrive.com/v1/deals?limit=100',
-        type: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer {{setting.token}}'
-        }
-      };
-
-      addLog('GET', '🔄 Fetching All Deals...', 'info', options.url);
-
-      client.request(options).then(
-        response => {
-          const displayValue = typeof response === 'object' ? JSON.stringify(response, null, 2) : String(response);
-          addLog('GET', '✅ All Deals Retrieved', 'success', displayValue);
-          updateLogs();
-        },
-        err => {
-          addLog('GET', '❌ Fetch Failed', 'error', (err && err.message) ? err.message : 'Unknown error');
-          updateLogs();
-        }
-      );
-    }
-
-    function getDealById() {
-      if (!client) {
-        addLog('GET', '❌ Client Not Initialized', 'error', 'BoldDesk SDK client is not initialized');
-        updateLogs();
-        return;
-      }
-
-      const dealId = document.getElementById('get-deal-id').value.trim();
-      if (!dealId) {
-        addLog('GET', '⚠️ No Deal ID', 'error', 'Please enter a deal ID');
-        updateLogs();
-        return;
-      }
-
-      const options = {
-        url: 'https://api.pipedrive.com/v1/deals/' + dealId,
-        type: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer {{setting.token}}'
-        }
-      };
-
-      addLog('GET', '🔄 Fetching Deal ' + dealId + '...', 'info', options.url);
-
-      client.request(options).then(
-        response => {
-          const displayValue = typeof response === 'object' ? JSON.stringify(response, null, 2) : String(response);
-          addLog('GET', '✅ Deal ' + dealId + ' Retrieved', 'success', displayValue);
-          updateLogs();
-        },
-        err => {
-          addLog('GET', '❌ Fetch Failed', 'error', (err && err.message) ? err.message : 'Unknown error');
-          updateLogs();
-        }
-      );
-    }
-
-    function getDealsByUser() {
-      if (!client) {
-        addLog('GET', '❌ Client Not Initialized', 'error', 'BoldDesk SDK client is not initialized');
-        updateLogs();
-        return;
-      }
-
-      const userId = document.getElementById('get-user-id').value.trim();
-      if (!userId) {
-        addLog('GET', '⚠️ No User ID', 'error', 'Please enter a user ID');
-        updateLogs();
-        return;
-      }
-
-      const options = {
-        url: 'https://api.pipedrive.com/v1/users/' + userId + '/deals',
-        type: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer {{setting.token}}'
-        }
-      };
-
-      addLog('GET', '🔄 Fetching Deals for User ' + userId + '...', 'info', options.url);
-
-      client.request(options).then(
-        response => {
-          const displayValue = typeof response === 'object' ? JSON.stringify(response, null, 2) : String(response);
-          addLog('GET', '✅ Deals for User ' + userId + ' Retrieved', 'success', displayValue);
-          updateLogs();
-        },
-        err => {
-          addLog('GET', '❌ Fetch Failed', 'error', (err && err.message) ? err.message : 'Unknown error');
-          updateLogs();
-        }
-      );
-    }
-
-    function getDealsByStage() {
-      if (!client) {
-        addLog('GET', '❌ Client Not Initialized', 'error', 'BoldDesk SDK client is not initialized');
-        updateLogs();
-        return;
-      }
-
-      const options = {
-        url: 'https://api.pipedrive.com/v1/stages',
-        type: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer {{setting.token}}'
-        }
-      };
-
-      addLog('GET', '🔄 Fetching Stages...', 'info', options.url);
-
-      client.request(options).then(
-        response => {
-          const displayValue = typeof response === 'object' ? JSON.stringify(response, null, 2) : String(response);
-          addLog('GET', '✅ Stages Retrieved', 'success', displayValue);
-          updateLogs();
-        },
-        err => {
-          addLog('GET', '❌ Fetch Failed', 'error', (err && err.message) ? err.message : 'Unknown error');
-          updateLogs();
-        }
-      );
-    }
-
-    function getDealsByStatus() {
-      if (!client) {
-        addLog('GET', '❌ Client Not Initialized', 'error', 'BoldDesk SDK client is not initialized');
-        updateLogs();
-        return;
-      }
-
-      const options = {
-        url: 'https://api.pipedrive.com/v1/deals?status=open&limit=50',
-        type: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer {{setting.token}}'
-        }
-      };
-
-      addLog('GET', '🔄 Fetching Open Deals...', 'info', options.url);
-
-      client.request(options).then(
-        response => {
-          const displayValue = typeof response === 'object' ? JSON.stringify(response, null, 2) : String(response);
-          addLog('GET', '✅ Open Deals Retrieved', 'success', displayValue);
-          updateLogs();
-        },
-        err => {
-          addLog('GET', '❌ Fetch Failed', 'error', (err && err.message) ? err.message : 'Unknown error');
-          updateLogs();
-        }
-      );
-    }
-
-    // ── CREATE Deal ────────────────────────────────────────────────────────────
-
-    function createDeal() {
-      if (!client) {
-        addLog('CREATE', '❌ Client Not Initialized', 'error', 'BoldDesk SDK client is not initialized');
-        updateLogs();
-        return;
-      }
-
-      const title = document.getElementById('create-title').value.trim();
-      const value = document.getElementById('create-value').value.trim();
-      const currency = document.getElementById('create-currency').value.trim();
-      const stageId = document.getElementById('create-stage').value.trim();
-
-      if (!title) {
-        addLog('CREATE', '⚠️ Missing Title', 'error', 'Deal title is required');
-        updateLogs();
-        return;
-      }
-
-      const dealData = {
-        title: title,
-        value: value ? parseInt(value) : 0,
-        currency: currency || 'USD',
-        stage_id: stageId ? parseInt(stageId) : 1
-      };
-
-      const personId = document.getElementById('create-person').value.trim();
-      if (personId) dealData.person_id = parseInt(personId);
-
-      const companyId = document.getElementById('create-company').value.trim();
-      if (companyId) dealData.org_id = parseInt(companyId);
-
-      const notes = document.getElementById('create-notes').value.trim();
-      if (notes) dealData.notes = notes;
-
-      const options = {
-        url: 'https://api.pipedrive.com/v1/deals',
-        type: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer {{setting.token}}'
-        },
-        body: JSON.stringify(dealData)
-      };
-
-      addLog('CREATE', '🔄 Creating Deal...', 'info', JSON.stringify(dealData, null, 2));
-
-      client.request(options).then(
-        response => {
-          const displayValue = typeof response === 'object' ? JSON.stringify(response, null, 2) : String(response);
-          addLog('CREATE', '✅ Deal Created', 'success', displayValue);
-          updateLogs();
-        },
-        err => {
-          addLog('CREATE', '❌ Creation Failed', 'error', (err && err.message) ? err.message : 'Unknown error');
-          updateLogs();
-        }
-      );
-    }
-
-    // ── UPDATE Deal ────────────────────────────────────────────────────────────
-
-    function updateDeal() {
-      if (!client) {
-        addLog('UPDATE', '❌ Client Not Initialized', 'error', 'BoldDesk SDK client is not initialized');
-        updateLogs();
-        return;
-      }
-
-      const dealId = document.getElementById('update-deal-id').value.trim();
-      if (!dealId) {
-        addLog('UPDATE', '⚠️ No Deal ID', 'error', 'Deal ID is required');
-        updateLogs();
-        return;
-      }
-
-      const updateData = {};
-      const title = document.getElementById('update-title').value.trim();
-      if (title) updateData.title = title;
-
-      const value = document.getElementById('update-value').value.trim();
-      if (value) updateData.value = parseInt(value);
-
-      const stageId = document.getElementById('update-stage').value.trim();
-      if (stageId) updateData.stage_id = parseInt(stageId);
-
-      const notes = document.getElementById('update-notes').value.trim();
-      if (notes) updateData.notes = notes;
-
-      if (Object.keys(updateData).length === 0) {
-        addLog('UPDATE', '⚠️ No Fields', 'error', 'Please enter at least one field to update');
-        updateLogs();
-        return;
-      }
-
-      const options = {
-        url: 'https://api.pipedrive.com/v1/deals/' + dealId,
-        type: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer {{setting.token}}'
-        },
-        body: JSON.stringify(updateData)
-      };
-
-      addLog('UPDATE', '🔄 Updating Deal ' + dealId + '...', 'info', JSON.stringify(updateData, null, 2));
-
-      client.request(options).then(
-        response => {
-          const displayValue = typeof response === 'object' ? JSON.stringify(response, null, 2) : String(response);
-          addLog('UPDATE', '✅ Deal ' + dealId + ' Updated', 'success', displayValue);
-          updateLogs();
-        },
-        err => {
-          addLog('UPDATE', '❌ Update Failed', 'error', (err && err.message) ? err.message : 'Unknown error');
-          updateLogs();
-        }
-      );
-    }
-
-    // ── DELETE Deal ────────────────────────────────────────────────────────────
-
-    function deleteDeal() {
-      if (!client) {
-        addLog('DELETE', '❌ Client Not Initialized', 'error', 'BoldDesk SDK client is not initialized');
-        updateLogs();
-        return;
-      }
-
-      const dealId = document.getElementById('delete-deal-id').value.trim();
-      if (!dealId) {
-        addLog('DELETE', '⚠️ No Deal ID', 'error', 'Deal ID is required');
-        updateLogs();
-        return;
-      }
-
-      if (!confirm('Are you sure you want to delete deal ' + dealId + '? This cannot be undone.')) {
-        addLog('DELETE', 'ℹ️ Cancelled', 'info', 'Delete operation cancelled');
-        updateLogs();
-        return;
-      }
-
-      const options = {
-        url: 'https://api.pipedrive.com/v1/deals/' + dealId,
-        type: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer {{setting.token}}'
-        }
-      };
-
-      addLog('DELETE', '🔄 Deleting Deal ' + dealId + '...', 'info', options.url);
-
-      client.request(options).then(
-        response => {
-          const displayValue = typeof response === 'object' ? JSON.stringify(response, null, 2) : String(response);
-          addLog('DELETE', '✅ Deal ' + dealId + ' Deleted', 'success', displayValue);
-          updateLogs();
-        },
-        err => {
-          addLog('DELETE', '❌ Delete Failed', 'error', (err && err.message) ? err.message : 'Unknown error');
-          updateLogs();
-        }
-      );
-    }
-
-    // ── Search Deals ───────────────────────────────────────────────────────────
-
-    function searchDeals() {
-      if (!client) {
-        addLog('SEARCH', '❌ Client Not Initialized', 'error', 'BoldDesk SDK client is not initialized');
-        updateLogs();
-        return;
-      }
-
-      let url = 'https://api.pipedrive.com/v1/deals?';
-      const searchTerm = document.getElementById('search-term').value.trim();
-      if (searchTerm) url += 'title=' + encodeURIComponent(searchTerm) + '&';
-
-      const minValue = document.getElementById('search-min').value.trim();
-      if (minValue) url += 'value_gte=' + minValue + '&';
-
-      const maxValue = document.getElementById('search-max').value.trim();
-      if (maxValue) url += 'value_lte=' + maxValue + '&';
-
-      const status = document.getElementById('search-status').value.trim();
-      if (status) url += 'status=' + status + '&';
-
-      url = url.replace(/[?&]$/, '');
-
-      const options = {
-        url: url,
-        type: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer {{setting.token}}'
-        }
-      };
-
-      addLog('SEARCH', '🔄 Searching Deals...', 'info', options.url);
-
-      client.request(options).then(
-        response => {
-          const displayValue = typeof response === 'object' ? JSON.stringify(response, null, 2) : String(response);
-          addLog('SEARCH', '✅ Search Results Retrieved', 'success', displayValue);
-          updateLogs();
-        },
-        err => {
-          addLog('SEARCH', '❌ Search Failed', 'error', (err && err.message) ? err.message : 'Unknown error');
-          updateLogs();
-        }
-      );
-    }
-
-    // ── UI Helpers ─────────────────────────────────────────────────────────────
-
-    function switchTab(tabName) {
-      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
-      document.getElementById(tabName).classList.add('active');
-      event.target.classList.add('active');
+    // ── Tab switching ────────────────────────────────────────────────────────
+    function switchTab(tabName, btn) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-' + tabName).classList.add('active');
       currentTab = tabName;
-      updateLogs();
+      loadTab(tabName);
     }
 
-    function addLog(type, title, logType, message) {
-      const entry = {
-        type,
-        title,
-        logType,
-        message,
-        timestamp: new Date().toLocaleTimeString()
-      };
-      allLogs.push(entry);
-      if (allLogs.length > LOG_LIMIT) allLogs.shift();
-      console.log(`[${type}] ${title}:`, message);
-      updateLogs();
+    function loadTab(tabName) {
+      if (loaded[tabName]) return;
+      if (!requesterEmail) return;
+      loaded[tabName] = true;
+      if (tabName === 'contacts')  fetchContacts();
+      if (tabName === 'companies') fetchCompanies();
+      if (tabName === 'deals')     fetchDeals();
     }
 
-    function updateLogs() {
-      const logDiv = document.getElementById(`${currentTab}-log`) || document.getElementById('combined-log');
-      if (!logDiv) return;
+    // ── Pipedrive API ─────────────────────────────────────────────────────────
+    const BASE = 'https://api.pipedrive.com/v1';
+    const AUTH_HEADERS = {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer {{setting.token}}'
+    };
 
-      let logsToDisplay = allLogs;
-      if (currentTab !== 'logs') {
-        logsToDisplay = allLogs.filter(log => {
-          if (currentTab === 'auth') return log.type === 'AUTH' || log.type === 'SYSTEM';
-          if (currentTab === 'get-deals') return log.type === 'GET';
-          if (currentTab === 'create-deal') return log.type === 'CREATE';
-          if (currentTab === 'update-deal') return log.type === 'UPDATE';
-          if (currentTab === 'delete-deal') return log.type === 'DELETE';
-          if (currentTab === 'search') return log.type === 'SEARCH';
-          return true;
-        });
-      }
-
-      if (logsToDisplay.length > 0) {
-        logDiv.innerHTML = logsToDisplay.map(log =>
-          `<div class="log-entry ${log.logType}"><strong>${log.timestamp}</strong> | ${log.title}<br>${log.message}</div>`
-        ).join('');
-        logDiv.scrollTop = logDiv.scrollHeight;
-      } else {
-        logDiv.innerHTML = '<div class="log-entry info">No logs yet</div>';
-      }
+    function pipedriveGet(url) {
+      return client.request({ url: url, type: 'GET', headers: AUTH_HEADERS });
     }
 
-    function clearAllLogs() {
-      allLogs = [];
-      updateLogs();
-      addLog('SYSTEM', '🗑️ Logs Cleared', 'info', 'All logs cleared');
-      updateLogs();
+    // ── Contacts: search person by requester email ───────────────────────────
+    function fetchContacts() {
+      showLoading('contacts-content');
+      const url = BASE + '/persons/search?term=' + encodeURIComponent(requesterEmail) +
+                  '&fields=email&limit=10';
+      pipedriveGet(url).then(
+        response => {
+          const items = safeItems(response);
+          if (!items.length) {
+            showEmpty('contacts-content', '👤', 'No contacts found for ' + requesterEmail);
+            return;
+          }
+          const html = items.map(item => {
+            const p = item.item || item;
+            return buildCard(p.name || requesterEmail, [
+              { label: 'Full name or email', value: p.name || requesterEmail },
+              { label: 'Company Name',       value: p.organization ? p.organization.name : null },
+              { label: 'Company size',       value: p.org_name || null },
+              { label: 'Last Name',          value: p.last_name || splitLast(p.name) },
+              { label: 'Phone',              value: p.phone && p.phone.length ? p.phone[0].value : null }
+            ]);
+          }).join('');
+          document.getElementById('contacts-content').innerHTML = requesterChip() + html;
+        },
+        err => {
+          loaded.contacts = false;
+          showError('contacts-content', '❌ ' + (err && err.message ? err.message : 'Failed to fetch contacts') +
+            '<br><button class="retry-btn" onclick="loaded.contacts=false;loadTab(\'contacts\')">Retry</button>');
+        }
+      );
     }
 
-    // Initial render
-    updateLogs();
+    // ── Companies: search organisations by requester email ───────────────────
+    function fetchCompanies() {
+      showLoading('companies-content');
+      const url = BASE + '/organizations/search?term=' + encodeURIComponent(requesterEmail) + '&limit=10';
+      pipedriveGet(url).then(
+        response => {
+          const items = safeItems(response);
+          if (!items.length) {
+            showEmpty('companies-content', '🏢', 'No companies found for ' + requesterEmail);
+            return;
+          }
+          const html = items.map(item => {
+            const o = item.item || item;
+            return buildCard(o.name || 'Company', [
+              { label: 'Company Name',  value: o.name },
+              { label: 'Address',       value: o.address || null },
+              { label: 'Owner',         value: o.owner ? o.owner.name : null },
+              { label: 'Open Deals',    value: o.open_deals_count != null ? String(o.open_deals_count) : null },
+              { label: 'People Count',  value: o.people_count    != null ? String(o.people_count)    : null }
+            ]);
+          }).join('');
+          document.getElementById('companies-content').innerHTML = requesterChip() + html;
+        },
+        err => {
+          loaded.companies = false;
+          showError('companies-content', '❌ ' + (err && err.message ? err.message : 'Failed to fetch companies') +
+            '<br><button class="retry-btn" onclick="loaded.companies=false;loadTab(\'companies\')">Retry</button>');
+        }
+      );
+    }
+
+    // ── Deals: search by requester email, fallback via person_id ────────────
+    function fetchDeals() {
+      showLoading('deals-content');
+      const url = BASE + '/deals/search?term=' + encodeURIComponent(requesterEmail) + '&limit=10';
+      pipedriveGet(url).then(
+        response => {
+          const items = safeItems(response);
+          if (!items.length) {
+            fetchDealsByPersonSearch();  // fallback: find person first, then get deals
+            return;
+          }
+          renderDeals(items);
+        },
+        err => {
+          loaded.deals = false;
+          showError('deals-content', '❌ ' + (err && err.message ? err.message : 'Failed to fetch deals') +
+            '<br><button class="retry-btn" onclick="loaded.deals=false;loadTab(\'deals\')">Retry</button>');
+        }
+      );
+    }
+
+    function fetchDealsByPersonSearch() {
+      const url = BASE + '/persons/search?term=' + encodeURIComponent(requesterEmail) +
+                  '&fields=email&limit=5';
+      pipedriveGet(url).then(
+        response => {
+          const items = safeItems(response);
+          if (!items.length) {
+            showEmpty('deals-content', '🤝', 'No deals found for ' + requesterEmail);
+            return;
+          }
+          const personId = (items[0].item || items[0]).id;
+          pipedriveGet(BASE + '/deals?person_id=' + personId + '&limit=10').then(
+            dealsResp => {
+              const deals = dealsResp && dealsResp.data ? dealsResp.data : [];
+              if (!deals.length) {
+                showEmpty('deals-content', '🤝', 'No deals found for this contact');
+                return;
+              }
+              renderDeals(deals.map(d => ({ item: d })));
+            },
+            err2 => {
+              loaded.deals = false;
+              showError('deals-content', '❌ ' + (err2 && err2.message ? err2.message : 'Failed to fetch deals'));
+            }
+          );
+        },
+        err => {
+          loaded.deals = false;
+          showError('deals-content', '❌ ' + (err && err.message ? err.message : 'Failed to fetch deals'));
+        }
+      );
+    }
+
+    function renderDeals(items) {
+      const html = items.map(item => {
+        const d = item.item || item;
+        const val = d.value != null
+          ? (d.currency ? d.currency + ' ' : '') + Number(d.value).toLocaleString()
+          : null;
+        return buildCard(d.title || 'Deal', [
+          { label: 'Title',      value: d.title },
+          { label: 'Value',      value: val },
+          { label: 'Status',     value: d.status     ? capitalise(d.status)          : null },
+          { label: 'Stage',      value: d.stage_name || (d.stage ? d.stage.name : null) },
+          { label: 'Close Date', value: d.close_time || d.expected_close_date || null }
+        ]);
+      }).join('');
+      document.getElementById('deals-content').innerHTML = requesterChip() + html;
+    }
+
+    // ── UI Builders ───────────────────────────────────────────────────────────
+    function buildCard(title, fields) {
+      const rows = fields.map(f => {
+        const val = f.value ? String(f.value) : null;
+        return '<div class="field-row">' +
+          '<div class="field-label">' + escHtml(f.label) + '</div>' +
+          '<div class="field-value' + (val ? '' : ' empty') + '">' + escHtml(val || '--') + '</div>' +
+          '</div>';
+      }).join('');
+      return '<div class="card">' +
+        '<div class="card-header" onclick="toggleCard(this)">' +
+          '<span class="card-title">' + escHtml(title) + '</span>' +
+          '<span class="chevron">&#8963;</span>' +
+        '</div>' +
+        '<div class="card-body">' + rows + '</div>' +
+        '</div>';
+    }
+
+    function toggleCard(header) {
+      header.classList.toggle('collapsed');
+      header.nextElementSibling.classList.toggle('hidden');
+    }
+
+    function requesterChip() {
+      return requesterEmail
+        ? '<div class="requester-chip">✉️ ' + escHtml(requesterEmail) + '</div>'
+        : '';
+    }
+
+    function showLoading(id) {
+      document.getElementById(id).innerHTML =
+        '<div class="loading-wrap"><span class="spinner"></span> Loading…</div>';
+    }
+
+    function showEmpty(id, icon, msg) {
+      document.getElementById(id).innerHTML =
+        '<div class="state-msg"><div class="icon">' + icon + '</div>' + escHtml(msg) + '</div>';
+    }
+
+    function showError(id, html) {
+      document.getElementById(id).innerHTML =
+        '<div class="state-msg error-msg"><div class="icon">⚠️</div>' + html + '</div>';
+    }
+
+    // ── Utilities ─────────────────────────────────────────────────────────────
+    function safeItems(response) {
+      if (!response) return [];
+      if (response.data && response.data.items) return response.data.items;
+      if (Array.isArray(response.data)) return response.data;
+      return [];
+    }
+
+    function escHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function splitLast(name) {
+      if (!name) return null;
+      const parts = name.trim().split(' ');
+      return parts.length > 1 ? parts[parts.length - 1] : null;
+    }
+
+    function capitalise(str) {
+      return str.charAt(0).toUpperCase() + str.slice(1);
+    }
   </script>
 </body>
 </html>
