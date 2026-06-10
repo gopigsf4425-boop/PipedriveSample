@@ -468,7 +468,11 @@
                 { label: 'Open Deals',    value: o.open_deals_count != null ? String(o.open_deals_count) : null },
                 { label: 'People Count',  value: o.people_count    != null ? String(o.people_count)    : null }
               ]);
-              document.getElementById('companies-content').innerHTML = requesterChip() + html;
+              // Always show "+ Create Company" below existing results
+              document.getElementById('companies-content').innerHTML =
+                requesterChip() + html +
+                '<button class="create-btn" style="margin-top:4px" onclick="showCreateCompanyForm()">+ Create Company</button>' +
+                '<div id="create-company-form"></div>';
             },
             err2 => {
               loaded.companies = false;
@@ -494,7 +498,10 @@
     }
 
     function showCreateCompanyForm() {
-      document.getElementById('create-company-form').innerHTML =
+      const wrap = document.getElementById('create-company-form');
+      // Toggle: if form is already open, close it
+      if (wrap && wrap.innerHTML.trim()) { wrap.innerHTML = ''; return; }
+      wrap.innerHTML =
         '<div class="create-form">' +
           '<h4>Create Company</h4>' +
           '<div class="form-field"><label>Company Name *</label>' +
@@ -574,7 +581,10 @@
     }
 
     function showCreateDealForm() {
-      document.getElementById('create-deal-form').innerHTML =
+      const wrap = document.getElementById('create-deal-form');
+      // Toggle: if form is already open, close it
+      if (wrap && wrap.innerHTML.trim()) { wrap.innerHTML = ''; return; }
+      wrap.innerHTML =
         '<div class="create-form">' +
           '<h4>Create Deal</h4>' +
           '<div class="form-field"><label>Deal Title *</label>' +
@@ -629,7 +639,11 @@
           { label: 'Close Date', value: d.close_time || d.expected_close_date || null }
         ]);
       }).join('');
-      document.getElementById('deals-content').innerHTML = requesterChip() + html;
+      // Always show "+ Create Deal" below existing results
+      document.getElementById('deals-content').innerHTML =
+        requesterChip() + html +
+        '<button class="create-btn" style="margin-top:4px" onclick="showCreateDealForm()">+ Create Deal</button>' +
+        '<div id="create-deal-form"></div>';
     }
 
     // ── UI Builders ───────────────────────────────────────────────────────────
