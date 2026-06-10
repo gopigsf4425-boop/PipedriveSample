@@ -283,7 +283,8 @@
     }
 
     // ── Companies: search organisations by requester email ───────────────────
-    // ── Companies: step 1 — get person by email, step 2 — get organisations by person id
+    // ── Companies: step 1 — get person by email → read organisation.id from response
+    //              step 2 — GET /organizations/{org_id}
     function fetchCompanies() {
       showLoading('companies-content');
       const searchUrl = BASE + '/persons/search?term=' + encodeURIComponent(requesterEmail) +
@@ -295,28 +296,32 @@
             showEmpty('companies-content', '🏢', 'No person found for ' + requesterEmail);
             return;
           }
-          const personId = (items[0].item || items[0]).id;
-          pipedriveGet(BASE + '/persons/' + personId + '/organizations').then(
+          const person = items[0].item || items[0];
+          const org    = person.organization;
+          if (!org || !org.id) {
+            showEmpty('companies-content', '🏢', 'No organisation linked to this contact');
+            return;
+          }
+          // Step 2: fetch full organisation details by org id
+          pipedriveGet(BASE + '/organizations/' + org.id).then(
             orgResp => {
-              const orgs = orgResp && orgResp.data ? orgResp.data : [];
-              if (!orgs.length) {
+              const o = orgResp && orgResp.data ? orgResp.data : null;
+              if (!o) {
                 showEmpty('companies-content', '🏢', 'No companies found for this contact');
                 return;
               }
-              const html = orgs.map(o => {
-                return buildCard(o.name || 'Company', [
-                  { label: 'Company Name',  value: o.name },
-                  { label: 'Address',       value: o.address || null },
-                  { label: 'Owner',         value: o.owner_name || null },
-                  { label: 'Open Deals',    value: o.open_deals_count != null ? String(o.open_deals_count) : null },
-                  { label: 'People Count',  value: o.people_count    != null ? String(o.people_count)    : null }
-                ]);
-              }).join('');
+              const html = buildCard(o.name || 'Company', [
+                { label: 'Company Name',  value: o.name },
+                { label: 'Address',       value: o.address || null },
+                { label: 'Owner',         value: o.owner_name || (o.owner ? o.owner.name : null) },
+                { label: 'Open Deals',    value: o.open_deals_count != null ? String(o.open_deals_count) : null },
+                { label: 'People Count',  value: o.people_count    != null ? String(o.people_count)    : null }
+              ]);
               document.getElementById('companies-content').innerHTML = requesterChip() + html;
             },
             err2 => {
               loaded.companies = false;
-              showError('companies-content', '❌ ' + (err2 && err2.message ? err2.message : 'Failed to fetch companies') +
+              showError('companies-content', '❌ ' + (err2 && err2.message ? err2.message : 'Failed to fetch organisation') +
                 '<br><button class="retry-btn" onclick="loaded.companies=false;loadTab(\'companies\')">Retry</button>');
             }
           );
