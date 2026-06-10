@@ -408,13 +408,12 @@
 
     function submitCreateContact() {
       const name  = (document.getElementById('cf-name').value || '').trim();
-      const phone = (document.getElementById('cf-phone').value || '').trim();
+      const phonenum = (document.getElementById('cf-phone').value || '').trim();
       if (!name) { document.getElementById('cf-msg').innerHTML = '<span style="color:#ea4335">Name is required.</span>'; return; }
       const btn = document.getElementById('cf-submit');
       btn.disabled = true; btn.textContent = 'Creating…';
       document.getElementById('cf-msg').innerHTML = '';
-      const body = { name: name, email: [{ value: requesterEmail, primary: true }] };
-      if (phone) body.phone = [{ value: phone, primary: true }];
+      const body = { name: name, email: requesterEmail, phone: phonenum };
       client.request({ url: BASE + '/persons', type: 'POST', headers: AUTH_HEADERS, data: body }).then(
         res => {
           if (res && res.data && res.data.id) {
