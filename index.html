@@ -283,69 +283,66 @@
     }
 
     // ── Companies: search organisations by requester email ───────────────────
+    // ── Companies: step 1 — get person by email, step 2 — get organisations by person id
     function fetchCompanies() {
       showLoading('companies-content');
-      const url = BASE + '/organizations/search?term=' + encodeURIComponent(requesterEmail) + '&limit=10';
-      pipedriveGet(url).then(
+      const searchUrl = BASE + '/persons/search?term=' + encodeURIComponent(requesterEmail) +
+                        '&fields=email&limit=5';
+      pipedriveGet(searchUrl).then(
         response => {
           const items = safeItems(response);
           if (!items.length) {
-            showEmpty('companies-content', '🏢', 'No companies found for ' + requesterEmail);
+            showEmpty('companies-content', '🏢', 'No person found for ' + requesterEmail);
             return;
           }
-          const html = items.map(item => {
-            const o = item.item || item;
-            return buildCard(o.name || 'Company', [
-              { label: 'Company Name',  value: o.name },
-              { label: 'Address',       value: o.address || null },
-              { label: 'Owner',         value: o.owner ? o.owner.name : null },
-              { label: 'Open Deals',    value: o.open_deals_count != null ? String(o.open_deals_count) : null },
-              { label: 'People Count',  value: o.people_count    != null ? String(o.people_count)    : null }
-            ]);
-          }).join('');
-          document.getElementById('companies-content').innerHTML = requesterChip() + html;
+          const personId = (items[0].item || items[0]).id;
+          pipedriveGet(BASE + '/persons/' + personId + '/organizations').then(
+            orgResp => {
+              const orgs = orgResp && orgResp.data ? orgResp.data : [];
+              if (!orgs.length) {
+                showEmpty('companies-content', '🏢', 'No companies found for this contact');
+                return;
+              }
+              const html = orgs.map(o => {
+                return buildCard(o.name || 'Company', [
+                  { label: 'Company Name',  value: o.name },
+                  { label: 'Address',       value: o.address || null },
+                  { label: 'Owner',         value: o.owner_name || null },
+                  { label: 'Open Deals',    value: o.open_deals_count != null ? String(o.open_deals_count) : null },
+                  { label: 'People Count',  value: o.people_count    != null ? String(o.people_count)    : null }
+                ]);
+              }).join('');
+              document.getElementById('companies-content').innerHTML = requesterChip() + html;
+            },
+            err2 => {
+              loaded.companies = false;
+              showError('companies-content', '❌ ' + (err2 && err2.message ? err2.message : 'Failed to fetch companies') +
+                '<br><button class="retry-btn" onclick="loaded.companies=false;loadTab(\'companies\')">Retry</button>');
+            }
+          );
         },
         err => {
           loaded.companies = false;
-          showError('companies-content', '❌ ' + (err && err.message ? err.message : 'Failed to fetch companies') +
+          showError('companies-content', '❌ ' + (err && err.message ? err.message : 'Failed to fetch person') +
             '<br><button class="retry-btn" onclick="loaded.companies=false;loadTab(\'companies\')">Retry</button>');
         }
       );
     }
 
-    // ── Deals: search by requester email, fallback via person_id ────────────
+    // ── Deals: step 1 — get person by email, step 2 — get deals by person id
     function fetchDeals() {
       showLoading('deals-content');
-      const url = BASE + '/deals/search?term=' + encodeURIComponent(requesterEmail) + '&limit=10';
-      pipedriveGet(url).then(
+      const searchUrl = BASE + '/persons/search?term=' + encodeURIComponent(requesterEmail) +
+                        '&fields=email&limit=5';
+      pipedriveGet(searchUrl).then(
         response => {
           const items = safeItems(response);
           if (!items.length) {
-            fetchDealsByPersonSearch();  // fallback: find person first, then get deals
-            return;
-          }
-          renderDeals(items);
-        },
-        err => {
-          loaded.deals = false;
-          showError('deals-content', '❌ ' + (err && err.message ? err.message : 'Failed to fetch deals') +
-            '<br><button class="retry-btn" onclick="loaded.deals=false;loadTab(\'deals\')">Retry</button>');
-        }
-      );
-    }
-
-    function fetchDealsByPersonSearch() {
-      const url = BASE + '/persons/search?term=' + encodeURIComponent(requesterEmail) +
-                  '&fields=email&limit=5';
-      pipedriveGet(url).then(
-        response => {
-          const items = safeItems(response);
-          if (!items.length) {
-            showEmpty('deals-content', '🤝', 'No deals found for ' + requesterEmail);
+            showEmpty('deals-content', '🤝', 'No person found for ' + requesterEmail);
             return;
           }
           const personId = (items[0].item || items[0]).id;
-          pipedriveGet(BASE + '/deals?person_id=' + personId + '&limit=10').then(
+          pipedriveGet(BASE + '/persons/' + personId + '/deals').then(
             dealsResp => {
               const deals = dealsResp && dealsResp.data ? dealsResp.data : [];
               if (!deals.length) {
@@ -356,13 +353,15 @@
             },
             err2 => {
               loaded.deals = false;
-              showError('deals-content', '❌ ' + (err2 && err2.message ? err2.message : 'Failed to fetch deals'));
+              showError('deals-content', '❌ ' + (err2 && err2.message ? err2.message : 'Failed to fetch deals') +
+                '<br><button class="retry-btn" onclick="loaded.deals=false;loadTab(\'deals\')">Retry</button>');
             }
           );
         },
         err => {
           loaded.deals = false;
-          showError('deals-content', '❌ ' + (err && err.message ? err.message : 'Failed to fetch deals'));
+          showError('deals-content', '❌ ' + (err && err.message ? err.message : 'Failed to fetch person') +
+            '<br><button class="retry-btn" onclick="loaded.deals=false;loadTab(\'deals\')">Retry</button>');
         }
       );
     }
