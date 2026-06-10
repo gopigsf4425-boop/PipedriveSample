@@ -118,6 +118,94 @@
       font-size: 12px;
     }
     .retry-btn:hover { background: #1558b0; }
+
+    /* ── Not-found / create bar (matches screenshot) */
+    .not-found-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 11px 14px;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      color: #666;
+      font-size: 12px;
+      margin-bottom: 10px;
+      background: #fafafa;
+    }
+    .not-found-bar .nf-icon { color: #aaa; font-size: 14px; }
+    .create-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 9px 14px;
+      background: #fff;
+      border: 1px solid #d0d7de;
+      border-radius: 8px;
+      color: #1a73e8;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      width: 100%;
+      transition: background 0.15s;
+    }
+    .create-btn:hover { background: #f0f4ff; }
+    .create-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Inline create form */
+    .create-form {
+      border: 1px solid #d0d7de;
+      border-radius: 8px;
+      padding: 14px;
+      margin-top: 8px;
+      background: #fafbff;
+    }
+    .create-form h4 { font-size: 13px; font-weight: 600; color: #1f3a93; margin-bottom: 12px; }
+    .form-field { margin-bottom: 10px; }
+    .form-field label { display: block; font-size: 11px; color: #666; margin-bottom: 4px; }
+    .form-field input {
+      width: 100%;
+      padding: 7px 10px;
+      border: 1px solid #d0d7de;
+      border-radius: 6px;
+      font-size: 13px;
+      outline: none;
+    }
+    .form-field input:focus { border-color: #1a73e8; }
+    .form-actions { display: flex; gap: 8px; margin-top: 12px; }
+    .btn-primary {
+      flex: 1;
+      padding: 8px;
+      background: #1a73e8;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .btn-primary:hover { background: #1558b0; }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+    .btn-cancel {
+      padding: 8px 14px;
+      background: #fff;
+      border: 1px solid #d0d7de;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+      color: #555;
+    }
+    .btn-cancel:hover { background: #f5f5f5; }
+    .locked-msg {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 11px 14px;
+      border: 1px dashed #e0e0e0;
+      border-radius: 8px;
+      color: #aaa;
+      font-size: 12px;
+      background: #fafafa;
+    }
   </style>
 </head>
 <body>
@@ -161,6 +249,7 @@
     // ── State ────────────────────────────────────────────────────────────────
     let client         = null;
     let requesterEmail = null;
+    let personId       = null;   // set once a Pipedrive person is found/created
     let currentTab     = 'contacts';
     const loaded       = { contacts: false, companies: false, deals: false };
 
@@ -233,6 +322,16 @@
     function loadTab(tabName) {
       if (loaded[tabName]) return;
       if (!requesterEmail) return;
+      // Companies & Deals are gated on personId.
+      // If personId is not yet known, show locked state but do NOT mark as loaded
+      // so they will reload properly once a contact is created.
+      if ((tabName === 'companies' || tabName === 'deals') && !personId) {
+        const icon = tabName === 'companies' ? '&#128274;' : '&#128274;';
+        const label = tabName === 'companies' ? 'Company' : 'Deal';
+        document.getElementById(tabName === 'companies' ? 'companies-content' : 'deals-content').innerHTML =
+          '<div class="locked-msg">' + icon + ' Please create a Contact first before adding a ' + label + '.</div>';
+        return;  // intentionally NOT setting loaded[tabName]=true
+      }
       loaded[tabName] = true;
       if (tabName === 'contacts')  fetchContacts();
       if (tabName === 'companies') fetchCompanies();
@@ -259,33 +358,90 @@
         response => {
           const items = safeItems(response);
           if (!items.length) {
-            showEmpty('contacts-content', '👤', 'No contacts found for ' + requesterEmail);
+            personId = null;
+            document.getElementById('contacts-content').innerHTML =
+              requesterChip() +
+              '<div class="not-found-bar"><span class="nf-icon">&#9432;</span> No contact found</div>' +
+              '<button class="create-btn" onclick="showCreateContactForm()">&#＋; + Create Contact</button>' +
+              '<div id="create-contact-form"></div>';
             return;
           }
+          const p  = items[0].item || items[0];
+          personId = p.id;
           const html = items.map(item => {
-            const p = item.item || item;
-            return buildCard(p.name || requesterEmail, [
-              { label: 'Full name or email', value: p.name || requesterEmail },
-              { label: 'Company Name',       value: p.organization ? p.organization.name : null },
-              { label: 'Company size',       value: p.org_name || null },
-              { label: 'Last Name',          value: p.last_name || splitLast(p.name) },
-              { label: 'Phone',              value: p.phone && p.phone.length ? p.phone[0].value : null }
+            const person = item.item || item;
+            return buildCard(person.name || requesterEmail, [
+              { label: 'Full name or email', value: person.name || requesterEmail },
+              { label: 'Company Name',       value: person.organization ? person.organization.name : null },
+              { label: 'Primary Email',      value: person.primary_email || (person.emails && person.emails.length ? person.emails[0] : null) },
+              { label: 'Last Name',          value: person.last_name || splitLast(person.name) },
+              { label: 'Phone',              value: person.phones && person.phones.length ? person.phones[0] : null }
             ]);
           }).join('');
           document.getElementById('contacts-content').innerHTML = requesterChip() + html;
         },
         err => {
           loaded.contacts = false;
-          showError('contacts-content', '❌ ' + (err && err.message ? err.message : 'Failed to fetch contacts') +
+          showError('contacts-content', '&#10060; ' + (err && err.message ? err.message : 'Failed to fetch contacts') +
             '<br><button class="retry-btn" onclick="loaded.contacts=false;loadTab(\'contacts\')">Retry</button>');
         }
       );
     }
 
-    // ── Companies: search organisations by requester email ───────────────────
-    // ── Companies: step 1 — get person by email → read organisation.id from response
-    //              step 2 — GET /organizations/{org_id}
+    function showCreateContactForm() {
+      document.getElementById('create-contact-form').innerHTML =
+        '<div class="create-form">' +
+          '<h4>Create Contact</h4>' +
+          '<div class="form-field"><label>Full Name *</label>' +
+            '<input id="cf-name" type="text" placeholder="e.g. John Doe" /></div>' +
+          '<div class="form-field"><label>Email</label>' +
+            '<input id="cf-email" type="text" value="' + escHtml(requesterEmail) + '" readonly /></div>' +
+          '<div class="form-field"><label>Phone</label>' +
+            '<input id="cf-phone" type="text" placeholder="e.g. +1 555 0100" /></div>' +
+          '<div class="form-actions">' +
+            '<button class="btn-primary" id="cf-submit" onclick="submitCreateContact()">Create</button>' +
+            '<button class="btn-cancel" onclick="document.getElementById(\'create-contact-form\').innerHTML=\'\'">Cancel</button>' +
+          '</div>' +
+          '<div id="cf-msg" style="margin-top:8px;font-size:12px;"></div>' +
+        '</div>';
+    }
+
+    function submitCreateContact() {
+      const name  = (document.getElementById('cf-name').value || '').trim();
+      const phone = (document.getElementById('cf-phone').value || '').trim();
+      if (!name) { document.getElementById('cf-msg').innerHTML = '<span style="color:#ea4335">Name is required.</span>'; return; }
+      const btn = document.getElementById('cf-submit');
+      btn.disabled = true; btn.textContent = 'Creating…';
+      document.getElementById('cf-msg').innerHTML = '';
+      const body = { name: name, email: [{ value: requesterEmail, primary: true }] };
+      if (phone) body.phone = [{ value: phone, primary: true }];
+      client.request({ url: BASE + '/persons', type: 'POST', headers: AUTH_HEADERS, data: body }).then(
+        res => {
+          if (res && res.data && res.data.id) {
+            personId = res.data.id;
+            loaded.contacts = false;
+            loadTab('contacts');
+          } else {
+            document.getElementById('cf-msg').innerHTML = '<span style="color:#ea4335">Create failed. Try again.</span>';
+            btn.disabled = false; btn.textContent = 'Create';
+          }
+        },
+        err => {
+          document.getElementById('cf-msg').innerHTML = '<span style="color:#ea4335">&#10060; ' + escHtml(err && err.message ? err.message : 'Error') + '</span>';
+          btn.disabled = false; btn.textContent = 'Create';
+        }
+      );
+    }
+
+    // ── Companies: requires contact to exist first
+    //   step 1 — get person by email → read organisation.id
+    //   step 2 — GET /organizations/{org_id}
     function fetchCompanies() {
+      if (!personId) {
+        document.getElementById('companies-content').innerHTML =
+          '<div class="locked-msg">&#128274; Please create a Contact first before adding a Company.</div>';
+        return;
+      }
       showLoading('companies-content');
       const searchUrl = BASE + '/persons/search?term=' + encodeURIComponent(requesterEmail) +
                         '&fields=email&limit=5';
@@ -293,23 +449,19 @@
         response => {
           const items = safeItems(response);
           if (!items.length) {
-            showEmpty('companies-content', '🏢', 'No person found for ' + requesterEmail);
+            showNoCompany();
             return;
           }
           const person = items[0].item || items[0];
           const org    = person.organization;
           if (!org || !org.id) {
-            showEmpty('companies-content', '🏢', 'No organisation linked to this contact');
+            showNoCompany();
             return;
           }
-          // Step 2: fetch full organisation details by org id
           pipedriveGet(BASE + '/organizations/' + org.id).then(
             orgResp => {
               const o = orgResp && orgResp.data ? orgResp.data : null;
-              if (!o) {
-                showEmpty('companies-content', '🏢', 'No companies found for this contact');
-                return;
-              }
+              if (!o) { showNoCompany(); return; }
               const html = buildCard(o.name || 'Company', [
                 { label: 'Company Name',  value: o.name },
                 { label: 'Address',       value: o.address || null },
@@ -321,52 +473,145 @@
             },
             err2 => {
               loaded.companies = false;
-              showError('companies-content', '❌ ' + (err2 && err2.message ? err2.message : 'Failed to fetch organisation') +
+              showError('companies-content', '&#10060; ' + (err2 && err2.message ? err2.message : 'Failed to fetch organisation') +
                 '<br><button class="retry-btn" onclick="loaded.companies=false;loadTab(\'companies\')">Retry</button>');
             }
           );
         },
         err => {
           loaded.companies = false;
-          showError('companies-content', '❌ ' + (err && err.message ? err.message : 'Failed to fetch person') +
+          showError('companies-content', '&#10060; ' + (err && err.message ? err.message : 'Failed to fetch person') +
             '<br><button class="retry-btn" onclick="loaded.companies=false;loadTab(\'companies\')">Retry</button>');
         }
       );
     }
 
-    // ── Deals: step 1 — get person by email, step 2 — get deals by person id
+    function showNoCompany() {
+      document.getElementById('companies-content').innerHTML =
+        requesterChip() +
+        '<div class="not-found-bar"><span class="nf-icon">&#9432;</span> No company found</div>' +
+        '<button class="create-btn" onclick="showCreateCompanyForm()">+ Create Company</button>' +
+        '<div id="create-company-form"></div>';
+    }
+
+    function showCreateCompanyForm() {
+      document.getElementById('create-company-form').innerHTML =
+        '<div class="create-form">' +
+          '<h4>Create Company</h4>' +
+          '<div class="form-field"><label>Company Name *</label>' +
+            '<input id="cc-name" type="text" placeholder="e.g. Acme Corp" /></div>' +
+          '<div class="form-field"><label>Address</label>' +
+            '<input id="cc-address" type="text" placeholder="e.g. 123 Main St" /></div>' +
+          '<div class="form-actions">' +
+            '<button class="btn-primary" id="cc-submit" onclick="submitCreateCompany()">Create</button>' +
+            '<button class="btn-cancel" onclick="document.getElementById(\'create-company-form\').innerHTML=\'\'">Cancel</button>' +
+          '</div>' +
+          '<div id="cc-msg" style="margin-top:8px;font-size:12px;"></div>' +
+        '</div>';
+    }
+
+    function submitCreateCompany() {
+      const name    = (document.getElementById('cc-name').value    || '').trim();
+      const address = (document.getElementById('cc-address').value || '').trim();
+      if (!name) { document.getElementById('cc-msg').innerHTML = '<span style="color:#ea4335">Company name is required.</span>'; return; }
+      const btn = document.getElementById('cc-submit');
+      btn.disabled = true; btn.textContent = 'Creating…';
+      document.getElementById('cc-msg').innerHTML = '';
+      const body = { name: name };
+      if (address) body.address = address;
+      client.request({ url: BASE + '/organizations', type: 'POST', headers: AUTH_HEADERS, data: body }).then(
+        res => {
+          if (res && res.data && res.data.id) {
+            // Link the new org to the existing person
+            client.request({ url: BASE + '/persons/' + personId, type: 'PUT', headers: AUTH_HEADERS,
+              data: { org_id: res.data.id } }).then(() => {
+                loaded.companies = false;
+                loadTab('companies');
+              }, () => { loaded.companies = false; loadTab('companies'); });
+          } else {
+            document.getElementById('cc-msg').innerHTML = '<span style="color:#ea4335">Create failed. Try again.</span>';
+            btn.disabled = false; btn.textContent = 'Create';
+          }
+        },
+        err => {
+          document.getElementById('cc-msg').innerHTML = '<span style="color:#ea4335">&#10060; ' + escHtml(err && err.message ? err.message : 'Error') + '</span>';
+          btn.disabled = false; btn.textContent = 'Create';
+        }
+      );
+    }
+
+    // ── Deals: requires contact to exist first
+    //   GET /persons/{person_id}/deals
     function fetchDeals() {
+      if (!personId) {
+        document.getElementById('deals-content').innerHTML =
+          '<div class="locked-msg">&#128274; Please create a Contact first before adding a Deal.</div>';
+        return;
+      }
       showLoading('deals-content');
-      const searchUrl = BASE + '/persons/search?term=' + encodeURIComponent(requesterEmail) +
-                        '&fields=email&limit=5';
-      pipedriveGet(searchUrl).then(
-        response => {
-          const items = safeItems(response);
-          if (!items.length) {
-            showEmpty('deals-content', '🤝', 'No person found for ' + requesterEmail);
+      pipedriveGet(BASE + '/persons/' + personId + '/deals').then(
+        dealsResp => {
+          const deals = dealsResp && dealsResp.data ? dealsResp.data : [];
+          if (!deals.length) {
+            showNoDeals();
             return;
           }
-          const personId = (items[0].item || items[0]).id;
-          pipedriveGet(BASE + '/persons/' + personId + '/deals').then(
-            dealsResp => {
-              const deals = dealsResp && dealsResp.data ? dealsResp.data : [];
-              if (!deals.length) {
-                showEmpty('deals-content', '🤝', 'No deals found for this contact');
-                return;
-              }
-              renderDeals(deals.map(d => ({ item: d })));
-            },
-            err2 => {
-              loaded.deals = false;
-              showError('deals-content', '❌ ' + (err2 && err2.message ? err2.message : 'Failed to fetch deals') +
-                '<br><button class="retry-btn" onclick="loaded.deals=false;loadTab(\'deals\')">Retry</button>');
-            }
-          );
+          renderDeals(deals.map(d => ({ item: d })));
         },
         err => {
           loaded.deals = false;
-          showError('deals-content', '❌ ' + (err && err.message ? err.message : 'Failed to fetch person') +
+          showError('deals-content', '&#10060; ' + (err && err.message ? err.message : 'Failed to fetch deals') +
             '<br><button class="retry-btn" onclick="loaded.deals=false;loadTab(\'deals\')">Retry</button>');
+        }
+      );
+    }
+
+    function showNoDeals() {
+      document.getElementById('deals-content').innerHTML =
+        requesterChip() +
+        '<div class="not-found-bar"><span class="nf-icon">&#9432;</span> No deal found</div>' +
+        '<button class="create-btn" onclick="showCreateDealForm()">+ Create Deal</button>' +
+        '<div id="create-deal-form"></div>';
+    }
+
+    function showCreateDealForm() {
+      document.getElementById('create-deal-form').innerHTML =
+        '<div class="create-form">' +
+          '<h4>Create Deal</h4>' +
+          '<div class="form-field"><label>Deal Title *</label>' +
+            '<input id="cd-title" type="text" placeholder="e.g. New Project" /></div>' +
+          '<div class="form-field"><label>Value</label>' +
+            '<input id="cd-value" type="number" placeholder="e.g. 5000" /></div>' +
+          '<div class="form-actions">' +
+            '<button class="btn-primary" id="cd-submit" onclick="submitCreateDeal()">Create</button>' +
+            '<button class="btn-cancel" onclick="document.getElementById(\'create-deal-form\').innerHTML=\'\'">Cancel</button>' +
+          '</div>' +
+          '<div id="cd-msg" style="margin-top:8px;font-size:12px;"></div>' +
+        '</div>';
+    }
+
+    function submitCreateDeal() {
+      const title = (document.getElementById('cd-title').value || '').trim();
+      const value = (document.getElementById('cd-value').value || '').trim();
+      if (!title) { document.getElementById('cd-msg').innerHTML = '<span style="color:#ea4335">Deal title is required.</span>'; return; }
+      const btn = document.getElementById('cd-submit');
+      btn.disabled = true; btn.textContent = 'Creating…';
+      document.getElementById('cd-msg').innerHTML = '';
+      const body = { title: title, person_id: personId };
+      if (value) body.value = parseFloat(value);
+      client.request({ url: BASE + '/deals', type: 'POST', headers: AUTH_HEADERS, data: body }).then(
+        res => {
+          if (res && res.data && res.data.id) {
+            loaded.deals = false;
+            loadTab('deals');
+          } else {
+            document.getElementById('cd-msg').innerHTML = '<span style="color:#ea4335">Create failed. Try again.</span>';
+            btn.disabled = false; btn.textContent = 'Create';
+          }
+        },
+        err => {
+          document.getElementById('cd-msg').innerHTML = '<span style="color:#ea4335">&#10060; ' + escHtml(err && err.message ? err.message : 'Error') + '</span>';
+          btn.disabled = false; btn.textContent = 'Create';
         }
       );
     }
