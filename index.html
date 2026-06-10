@@ -414,7 +414,7 @@
       btn.disabled = true; btn.textContent = 'Creating…';
       document.getElementById('cf-msg').innerHTML = '';
       const body = { name: name, email: requesterEmail, phone: phonenum };
-      client.request({ url: BASE + '/persons', type: 'POST', headers: AUTH_HEADERS, data: body }).then(
+      client.request({ url: BASE + '/persons', type: 'POST', headers: AUTH_HEADERS, data: JSON.stringify(body) }).then(
         res => {
           if (res && res.data && res.data.id) {
             personId = res.data.id;
@@ -518,7 +518,7 @@
       document.getElementById('cc-msg').innerHTML = '';
       const body = { name: name };
       if (address) body.address = address;
-      client.request({ url: BASE + '/organizations', type: 'POST', headers: AUTH_HEADERS, data: body }).then(
+      client.request({ url: BASE + '/organizations', type: 'POST', headers: AUTH_HEADERS, data: JSON.stringify(body) }).then(
         res => {
           if (res && res.data && res.data.id) {
             // Link the new org to the existing person
@@ -598,7 +598,7 @@
       document.getElementById('cd-msg').innerHTML = '';
       const body = { title: title, person_id: personId };
       if (value) body.value = parseFloat(value);
-      client.request({ url: BASE + '/deals', type: 'POST', headers: AUTH_HEADERS, data: body }).then(
+      client.request({ url: BASE + '/deals', type: 'POST', headers: AUTH_HEADERS, data: JSON.stringify(body) }).then(
         res => {
           if (res && res.data && res.data.id) {
             loaded.deals = false;
