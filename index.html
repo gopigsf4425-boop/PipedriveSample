@@ -543,7 +543,7 @@
             const o = res.data;
             // Link the new org to the existing person
             client.request({ url: BASE + '/persons/' + personId, type: 'PUT', headers: AUTH_HEADERS,
-              data: { org_id: newOrgId } }).then(() => {
+              data: JSON.stringify({ org_id: newOrgId }) }).then(() => {
                 // Render directly from creation response — don't re-search (Pipedrive index lags)
                 loaded.companies = true;
                 const html = buildCard(o.name || name, [
