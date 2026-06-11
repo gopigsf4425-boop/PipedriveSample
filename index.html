@@ -414,12 +414,22 @@
       btn.disabled = true; btn.textContent = 'Creating…';
       document.getElementById('cf-msg').innerHTML = '';
       const body = { name: name, email: requesterEmail, phone: phonenum };
-      client.request({ url: BASE + '/persons', type: 'POST', headers: AUTH_HEADERS, data: JSON.stringify(body) }).then(
+      client.request({ url: BASE + '/persons', type: 'POST', headers: AUTH_HEADERS, data: body }).then(
         res => {
           if (res && res.data && res.data.id) {
             personId = res.data.id;
-            loaded.contacts = false;
-            loadTab('contacts');
+            const p = res.data;
+            // Render details directly from creation response — don't re-search
+            // (Pipedrive search index may lag and return no results immediately)
+            const html = buildCard(p.name || requesterEmail, [
+              { label: 'Full name or email', value: p.name || requesterEmail },
+              { label: 'Company Name',       value: p.org_id ? (p.org_id.name || null) : null },
+              { label: 'Primary Email',      value: p.primary_email || (p.email && p.email.length ? p.email[0].value : requesterEmail) },
+              { label: 'Last Name',          value: splitLast(p.name) },
+              { label: 'Phone',              value: p.phone && p.phone.length ? p.phone[0].value : null }
+            ]);
+            loaded.contacts = true;
+            document.getElementById('contacts-content').innerHTML = requesterChip() + html;
           } else {
             document.getElementById('cf-msg').innerHTML = '<span style="color:#ea4335">Create failed. Try again.</span>';
             btn.disabled = false; btn.textContent = 'Create';
@@ -525,14 +535,27 @@
       document.getElementById('cc-msg').innerHTML = '';
       const body = { name: name };
       if (address) body.address = address;
-      client.request({ url: BASE + '/organizations', type: 'POST', headers: AUTH_HEADERS, data: JSON.stringify(body) }).then(
+      client.request({ url: BASE + '/organizations', type: 'POST', headers: AUTH_HEADERS, data: body }).then(
         res => {
           if (res && res.data && res.data.id) {
+            const newOrgId = res.data.id;
+            const o = res.data;
             // Link the new org to the existing person
             client.request({ url: BASE + '/persons/' + personId, type: 'PUT', headers: AUTH_HEADERS,
-              data: { org_id: res.data.id } }).then(() => {
-                loaded.companies = false;
-                loadTab('companies');
+              data: { org_id: newOrgId } }).then(() => {
+                // Render directly from creation response — don't re-search (Pipedrive index lags)
+                loaded.companies = true;
+                const html = buildCard(o.name || name, [
+                  { label: 'Company Name',  value: o.name },
+                  { label: 'Address',       value: o.address || null },
+                  { label: 'Owner',         value: o.owner_name || (o.owner ? o.owner.name : null) },
+                  { label: 'Open Deals',    value: o.open_deals_count != null ? String(o.open_deals_count) : null },
+                  { label: 'People Count',  value: o.people_count    != null ? String(o.people_count)    : null }
+                ]);
+                document.getElementById('companies-content').innerHTML =
+                  requesterChip() + html +
+                  '<button class="create-btn" style="margin-top:4px" onclick="showCreateCompanyForm()">+ Create Company</button>' +
+                  '<div id="create-company-form"></div>';
               }, () => { loaded.companies = false; loadTab('companies'); });
           } else {
             document.getElementById('cc-msg').innerHTML = '<span style="color:#ea4335">Create failed. Try again.</span>';
@@ -608,7 +631,7 @@
       document.getElementById('cd-msg').innerHTML = '';
       const body = { title: title, person_id: personId };
       if (value) body.value = parseFloat(value);
-      client.request({ url: BASE + '/deals', type: 'POST', headers: AUTH_HEADERS, data: JSON.stringify(body) }).then(
+      client.request({ url: BASE + '/deals', type: 'POST', headers: AUTH_HEADERS, data: body }).then(
         res => {
           if (res && res.data && res.data.id) {
             loaded.deals = false;
